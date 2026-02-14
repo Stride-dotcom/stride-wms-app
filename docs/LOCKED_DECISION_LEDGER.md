@@ -83,6 +83,7 @@ It captures high-impact implementation decisions, their status, and supersession
 | DL-2026-02-14-051 | Subscription enforcement scope moves to full-app restriction with payment-update redirect | SaaS Enforcement | accepted | Chat Q&A (2026-02-14) | DL-2026-02-14-018, DL-2026-02-14-019, DL-2026-02-14-048, DL-2026-02-14-050 | - |
 | DL-2026-02-14-052 | Full-app redirect starts immediately at past_due (during grace) | SaaS Enforcement | accepted | Chat Q&A (2026-02-14) | DL-2026-02-14-024 | - |
 | DL-2026-02-14-053 | Blocked page must auto-check subscription recovery and allow manual status refresh | SaaS UX | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-054 | Blocked-user destination route is /subscription/update-payment | SaaS UX | accepted | Chat Q&A (2026-02-14) | - | - |
 
 ## Detailed imports
 
@@ -151,6 +152,26 @@ Stripe recovery events are asynchronous; users need a low-friction path to regai
 - Add polling/refetch behavior to blocked flow.
 - Add manual status refresh control on blocked page.
 - On recovered status, immediately release app-level restriction and continue normal app navigation.
+
+### DL-2026-02-14-054: Blocked-user destination route is /subscription/update-payment
+- Domain: SaaS UX
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+The enforced payment-recovery flow uses a dedicated app route: `/subscription/update-payment`.
+
+#### Why
+A dedicated route keeps blocked-state logic isolated from normal billing/settings pages and simplifies allowlisting.
+
+#### Implementation impact
+- Add route/page for subscription payment update flow.
+- Route allowlist while blocked must include `/subscription/update-payment`.
+- Portal return URL should target `/subscription/update-payment`.
 
 ## Decision entry template (copy/paste)
 

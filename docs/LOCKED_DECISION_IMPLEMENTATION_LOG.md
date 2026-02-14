@@ -28,6 +28,7 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-006 | 2026-02-14 | DL-2026-02-14-051 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted superseding decision | builder | Shifted direction from route-level gating toward app-level restriction + payment-update redirect. |
 | DLE-2026-02-14-007 | 2026-02-14 | DL-2026-02-14-052 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted timing decision | builder | Redirect trigger now starts at `past_due` (during grace). |
 | DLE-2026-02-14-008 | 2026-02-14 | DL-2026-02-14-053 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted UX polling decision | builder | Blocked flow will auto-check recovery and include manual refresh. |
+| DLE-2026-02-14-009 | 2026-02-14 | DL-2026-02-14-054 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted route decision | builder | Standardized blocked destination as `/subscription/update-payment`. |
 
 ## Event template (copy/paste)
 
