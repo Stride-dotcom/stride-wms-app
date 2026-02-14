@@ -35,9 +35,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/integrations/supabase/client';
-import { useReceivingDiscrepancies } from '@/hooks/useReceivingDiscrepancies';
 import { logActivity } from '@/lib/activity/logActivity';
 import { AddFromManifestSelector } from './AddFromManifestSelector';
+import { ShipmentExceptionBadge } from '@/components/shipments/ShipmentExceptionBadge';
 
 interface ReceivedItem {
   id: string;
@@ -62,6 +62,7 @@ export interface ItemMatchingParams {
 interface Stage2DetailedReceivingProps {
   shipmentId: string;
   shipmentNumber: string;
+  exceptionCount?: number;
   shipment: {
     account_id: string | null;
     warehouse_id: string | null;
@@ -74,15 +75,18 @@ interface Stage2DetailedReceivingProps {
   onRefresh: () => void;
   /** Called when item details change to refine matching panel candidates */
   onItemMatchingParamsChange?: (params: ItemMatchingParams) => void;
+  onOpenExceptions?: () => void;
 }
 
 export function Stage2DetailedReceiving({
   shipmentId,
   shipmentNumber,
+  exceptionCount,
   shipment,
   onComplete,
   onRefresh,
   onItemMatchingParamsChange,
+  onOpenExceptions,
 }: Stage2DetailedReceivingProps) {
   const { profile } = useAuth();
   const { toast } = useToast();
@@ -130,9 +134,6 @@ export function Stage2DetailedReceiving({
   // Completing
   const [completing, setCompleting] = useState(false);
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
-
-  // Discrepancies
-  const { createDiscrepancy } = useReceivingDiscrepancies(shipmentId);
 
   // Load existing shipment items
   useEffect(() => {
@@ -535,20 +536,6 @@ export function Stage2DetailedReceiving({
         }
       }
 
-      // Check for pieces mismatch discrepancy
-      if (receivedPieces !== shipment.signed_pieces && shipment.signed_pieces) {
-        await createDiscrepancy({
-          shipmentId,
-          type: 'PIECES_MISMATCH',
-          details: {
-            signed: shipment.signed_pieces,
-            received: receivedPieces,
-            difference: receivedPieces - shipment.signed_pieces,
-            stage: 'stage2',
-          },
-        });
-      }
-
       // Log admin override if used
       if (adminOverride) {
         logActivity({
@@ -625,6 +612,11 @@ export function Stage2DetailedReceiving({
                 <MaterialIcon name="inventory_2" size="md" className="text-primary" />
                 Stage 2 — Detailed Receiving
                 <Badge variant="outline">{shipmentNumber}</Badge>
+                <ShipmentExceptionBadge
+                  shipmentId={shipmentId}
+                  count={exceptionCount}
+                  onClick={onOpenExceptions}
+                />
               </CardTitle>
               <CardDescription className="mt-1">
                 Receive items, create inventory units, and verify quantities.
@@ -648,7 +640,7 @@ export function Stage2DetailedReceiving({
           <CardTitle className="text-base flex items-center gap-2">
             <MaterialIcon name="pin" size="sm" />
             Received Pieces <span className="text-red-500">*</span>
-            <HelpTip tooltip="Total number of pieces received. If different from signed pieces, a discrepancy will be recorded." />
+            <HelpTip tooltip="Total number of pieces received at dock intake stage 2." />
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -840,7 +832,7 @@ export function Stage2DetailedReceiving({
             {receivedPieces !== shipment.signed_pieces && shipment.signed_pieces && (
               <div className="p-2 bg-amber-50 border border-amber-200 rounded-md text-sm text-amber-800">
                 <MaterialIcon name="warning" size="sm" className="inline mr-1" />
-                Pieces mismatch will be recorded as a discrepancy.
+                Signed and received piece counts are different.
               </div>
             )}
           </div>

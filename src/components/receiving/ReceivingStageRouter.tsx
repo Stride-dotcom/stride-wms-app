@@ -7,19 +7,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useSearchParams } from 'react-router-dom';
 import { Stage1DockIntake } from './Stage1DockIntake';
 import type { MatchingParamsUpdate } from './Stage1DockIntake';
 import { ConfirmationGuard } from './ConfirmationGuard';
 import { Stage2DetailedReceiving } from './Stage2DetailedReceiving';
 import type { ItemMatchingParams } from './Stage2DetailedReceiving';
-import { IssuesTab } from './IssuesTab';
-import { useReceivingDiscrepancies } from '@/hooks/useReceivingDiscrepancies';
+import { ExceptionsTab } from './ExceptionsTab';
+import { useShipmentExceptions } from '@/hooks/useShipmentExceptions';
 import DockIntakeMatchingPanel from '@/components/incoming/DockIntakeMatchingPanel';
 import type { CandidateParams } from '@/hooks/useInboundCandidates';
 import { downloadReceivingPdf, storeReceivingPdf, type ReceivingPdfData } from '@/lib/receivingPdf';
 import { queueReceivingDiscrepancyAlert } from '@/lib/alertQueue';
-import { ShipmentExceptionActions } from './ShipmentExceptionActions';
+import { ShipmentExceptionBadge } from '@/components/shipments/ShipmentExceptionBadge';
 
 interface ShipmentData {
   id: string;
@@ -50,14 +50,16 @@ type InboundStatus = 'draft' | 'stage1_complete' | 'receiving' | 'closed';
 export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) {
   const { profile } = useAuth();
   const { toast } = useToast();
-  const isMobile = useIsMobile();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [shipment, setShipment] = useState<ShipmentData | null>(null);
   const [accountName, setAccountName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('receiving');
+  const [activeTab, setActiveTab] = useState<'receiving' | 'exceptions'>(
+    searchParams.get('tab') === 'exceptions' ? 'exceptions' : 'receiving'
+  );
   const [mobileMatchingOpen, setMobileMatchingOpen] = useState(false);
   const [pdfRetrying, setPdfRetrying] = useState(false);
-  const { openCount } = useReceivingDiscrepancies(shipmentId);
+  const { openCount } = useShipmentExceptions(shipmentId);
 
   // Live matching params from Stage 1 fields (updated as user types)
   const [liveMatchingParams, setLiveMatchingParams] = useState<MatchingParamsUpdate | null>(null);
@@ -97,6 +99,19 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
   useEffect(() => {
     fetchShipment();
   }, [fetchShipment]);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    setActiveTab(tab === 'exceptions' ? 'exceptions' : 'receiving');
+  }, [searchParams]);
+
+  const setTab = (tab: 'receiving' | 'exceptions') => {
+    setActiveTab(tab);
+    const next = new URLSearchParams(searchParams);
+    if (tab === 'exceptions') next.set('tab', 'exceptions');
+    else next.delete('tab');
+    setSearchParams(next, { replace: true });
+  };
 
   const handleStageChange = () => {
     // Reset item-level params when transitioning stages
@@ -140,12 +155,6 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
       .eq('shipment_id', shipmentId)
       .eq('status', 'received');
 
-    // Fetch discrepancies for summary
-    const { data: discrepancies } = await (supabase as any)
-      .from('receiving_discrepancies')
-      .select('type, details, status')
-      .eq('shipment_id', shipmentId);
-
     return {
       shipmentNumber: s.shipment_number,
       vendorName: s.vendor_name,
@@ -182,18 +191,19 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
 
       // Fire alerts (non-blocking)
       try {
-        const { data: discrepancies } = await (supabase as any)
-          .from('receiving_discrepancies')
-          .select('type')
+        const { data: exceptions } = await supabase
+          .from('shipment_exceptions')
+          .select('id')
           .eq('shipment_id', shipmentId)
-          .eq('tenant_id', profile.tenant_id);
+          .eq('tenant_id', profile.tenant_id)
+          .eq('status', 'open');
 
-        if (discrepancies && discrepancies.length > 0) {
+        if (exceptions && exceptions.length > 0) {
           queueReceivingDiscrepancyAlert(
             profile.tenant_id,
             shipmentId,
             shipment.shipment_number,
-            discrepancies.length
+            exceptions.length
           );
         }
       } catch {
@@ -314,9 +324,11 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
             shipmentId={shipmentId}
             shipmentNumber={shipment.shipment_number}
             shipment={shipment as any}
+            exceptionCount={openCount}
             onComplete={handleStageChange}
             onRefresh={fetchShipment}
             onMatchingParamsChange={handleMatchingParamsChange}
+            onOpenExceptions={() => setTab('exceptions')}
           />
         );
 
@@ -327,8 +339,10 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
             shipmentNumber={shipment.shipment_number}
             shipment={shipment as any}
             accountName={accountName}
+            exceptionCount={openCount}
             onConfirm={handleStageChange}
             onGoBack={handleStageChange}
+            onOpenExceptions={() => setTab('exceptions')}
           />
         );
 
@@ -338,9 +352,11 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
             shipmentId={shipmentId}
             shipmentNumber={shipment.shipment_number}
             shipment={shipment as any}
+            exceptionCount={openCount}
             onComplete={handleReceivingComplete}
             onRefresh={fetchShipment}
             onItemMatchingParamsChange={handleItemMatchingParamsChange}
+            onOpenExceptions={() => setTab('exceptions')}
           />
         );
 
@@ -386,22 +402,23 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
 
   return (
     <div className="space-y-3">
-      <ShipmentExceptionActions
-        shipmentId={shipmentId}
-        shipmentNumber={shipment.shipment_number}
-        accountId={shipment.account_id}
-        exceptionType={shipment.shipment_exception_type}
-        onUpdated={fetchShipment}
-      />
-    <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <div className="flex items-center gap-2 px-1">
+        <span className="font-mono text-sm sm:text-base font-medium">{shipment.shipment_number}</span>
+        <ShipmentExceptionBadge
+          shipmentId={shipmentId}
+          count={openCount}
+          onClick={() => setTab('exceptions')}
+        />
+      </div>
+    <Tabs value={activeTab} onValueChange={(value) => setTab(value as 'receiving' | 'exceptions')}>
       <TabsList className="flex-wrap h-auto gap-1 mb-4">
         <TabsTrigger value="receiving" className="gap-2">
           <MaterialIcon name="inventory_2" size="sm" />
           Receiving
         </TabsTrigger>
-        <TabsTrigger value="issues" className="gap-2">
+        <TabsTrigger value="exceptions" className="gap-2">
           <MaterialIcon name="report_problem" size="sm" />
-          Issues
+          Exceptions
           {openCount > 0 && (
             <Badge variant="destructive" className="ml-1 h-5 min-w-5 text-xs">
               {openCount}
@@ -462,8 +479,8 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
         )}
       </TabsContent>
 
-      <TabsContent value="issues">
-        <IssuesTab shipmentId={shipmentId} />
+      <TabsContent value="exceptions">
+        <ExceptionsTab shipmentId={shipmentId} />
       </TabsContent>
     </Tabs>
     </div>
