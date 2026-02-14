@@ -883,7 +883,7 @@ export function Stage2DetailedReceiving({
                     <TableHead className="w-24 text-right">Quantity</TableHead>
                     <TableHead className="w-40">Vendor</TableHead>
                     <TableHead className="min-w-[220px]">Description</TableHead>
-                    <TableHead className="w-44">Glass</TableHead>
+                    <TableHead className="w-44">Class</TableHead>
                     <TableHead className="w-40">Side Mark</TableHead>
                     <TableHead className="w-36">Room</TableHead>
                     <TableHead className="w-40">Actions</TableHead>
