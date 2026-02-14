@@ -7,6 +7,7 @@ Primary source of truth: `docs/LOCKED_DECISION_LEDGER.md` + `docs/LOCKED_DECISIO
 
 Continue Phase 5 SaaS subscription automation using locked decisions and one-question-at-a-time clarification.
 Current superseding direction: `DL-2026-02-14-051` (accepted) shifts from route-level gating to app-level restriction with payment-update redirect.
+Redirect timing decision captured: `DL-2026-02-14-052` (accepted) starts redirect at `past_due` during grace.
 
 ## Current implementation snapshot
 
@@ -32,8 +33,8 @@ Confirmed present in repo:
 
 ## Planned continuation sequence
 
-1. **Finalize global restriction trigger timing** (when redirect takes effect).
-2. **Define payment-update destination** (route/page ownership, allowlist behavior).
+1. **Define payment-update destination** (route/page ownership, allowlist behavior).
+2. **Decide Stripe operations visibility model** (Stripe dashboard only vs internal admin-dev mirror page).
 3. **Resolve webhook/RPC contract mismatches** (customer/subscription mapping and RPC identity).
 4. **Implement global restriction flow** without modifying locked history in place (supersession-aware).
 5. **Add verification checklist/tests** (Stripe replay, grace transitions, lock/unlock redirect behavior).
@@ -51,8 +52,8 @@ For each unresolved item:
 
 ## Open questions queue (ask serially)
 
-1. Should full-app redirect happen only when `is_restricted=true` (after grace), or immediately on `past_due` (during grace too)?
-2. What exact route should host payment update (`/billing/subscription`, `/settings/billing`, or new `/subscription/update-payment`)?
+1. What exact route should host payment update (`/billing/subscription`, `/settings/billing`, or new `/subscription/update-payment`)?
+2. Should we add an internal `admin_dev` Stripe operations page (read-mostly mirror) in addition to Stripe Dashboard?
 3. Which routes should remain allowlisted while blocked (for example auth/logout/help/support)?
 4. For payment-state RPCs, should we supersede DL-040/DL-041 to standardize on `stripe_subscription_id` (matching current implementation), or refactor code to tenant-id-based mutation?
 5. For `customer.subscription.updated`, should tenant resolution strictly follow customer-id then subscription-id fallback (as locked), or remain subscription-id only?

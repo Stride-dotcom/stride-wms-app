@@ -81,6 +81,7 @@ It captures high-impact implementation decisions, their status, and supersession
 | DL-2026-02-14-049 | useSubscriptionGate uses query key, stale time, and window-focus refetch policy | Frontend Gating | locked | `docs/LOCKED_DECISION_LEDGER_PHASE5V3_IMPORT.md` | - | 2026-02-14 |
 | DL-2026-02-14-050 | Gated route list is exact and includes internal and client creation routes | Frontend Gating | locked | `docs/LOCKED_DECISION_LEDGER_PHASE5V3_IMPORT.md` | - | 2026-02-14 |
 | DL-2026-02-14-051 | Subscription enforcement scope moves to full-app restriction with payment-update redirect | SaaS Enforcement | accepted | Chat Q&A (2026-02-14) | DL-2026-02-14-018, DL-2026-02-14-019, DL-2026-02-14-048, DL-2026-02-14-050 | - |
+| DL-2026-02-14-052 | Full-app redirect starts immediately at past_due (during grace) | SaaS Enforcement | accepted | Chat Q&A (2026-02-14) | DL-2026-02-14-024 | - |
 
 ## Detailed imports
 
@@ -109,6 +110,26 @@ Business intent is to make subscription remediation the immediate path instead o
 - Introduces app-level restriction flow instead of limited route wrappers.
 - Requires a dedicated payment-update destination route/page and allowlist behavior.
 - Requires supersession plan for Phase 5 route-level gate decisions.
+
+### DL-2026-02-14-052: Full-app redirect starts immediately at past_due (during grace)
+- Domain: SaaS Enforcement
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: DL-2026-02-14-024
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+Users are redirected to the subscription payment-update path immediately when status becomes `past_due` (during grace), not only after grace expires.
+
+#### Why
+Business priority is hard enforcement of billing remediation flow as soon as payment failure occurs.
+
+#### Implementation impact
+- Redefines grace as a payment-recovery window rather than an access-allowed window.
+- App-level gate condition must block normal app routes for `past_due`, `canceled`, and `inactive`.
+- Requires supersession-aware updates to banner/copy so in-grace users are still blocked but informed of grace deadline.
 
 ## Decision entry template (copy/paste)
 

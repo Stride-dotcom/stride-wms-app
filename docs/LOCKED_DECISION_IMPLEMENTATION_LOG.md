@@ -26,6 +26,7 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-004 | 2026-02-14 | DL-2026-02-14-005..DL-2026-02-14-050 | completed | Added `docs/LOCKED_DECISION_LEDGER_PHASE5V3_IMPORT.md` | builder | Imported full detailed locked decision set from authoritative Phase 5 v3 PDF. |
 | DLE-2026-02-14-005 | 2026-02-14 | DL-2026-02-14-005..DL-2026-02-14-050 | completed | Expanded index in `docs/LOCKED_DECISION_LEDGER.md` | builder | Registered all imported decisions in canonical ledger index. |
 | DLE-2026-02-14-006 | 2026-02-14 | DL-2026-02-14-051 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted superseding decision | builder | Shifted direction from route-level gating toward app-level restriction + payment-update redirect. |
+| DLE-2026-02-14-007 | 2026-02-14 | DL-2026-02-14-052 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted timing decision | builder | Redirect trigger now starts at `past_due` (during grace). |
 
 ## Event template (copy/paste)
 
