@@ -7,10 +7,12 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 interface StorageInspectionSectionProps {
   freeStorageDays: number;
   shouldCreateInspections: boolean;
+  shouldAutoApplyArrivalNoIdFlag: boolean;
   shouldAutoAssembly: boolean;
   shouldAutoRepair: boolean;
   onFreeStorageDaysChange: (value: number) => void;
   onShouldCreateInspectionsChange: (value: boolean) => void;
+  onShouldAutoApplyArrivalNoIdFlagChange: (value: boolean) => void;
   onShouldAutoAssemblyChange: (value: boolean) => void;
   onShouldAutoRepairChange: (value: boolean) => void;
 }
@@ -18,10 +20,12 @@ interface StorageInspectionSectionProps {
 export function StorageInspectionSection({
   freeStorageDays,
   shouldCreateInspections,
+  shouldAutoApplyArrivalNoIdFlag,
   shouldAutoAssembly,
   shouldAutoRepair,
   onFreeStorageDaysChange,
   onShouldCreateInspectionsChange,
+  onShouldAutoApplyArrivalNoIdFlagChange,
   onShouldAutoAssemblyChange,
   onShouldAutoRepairChange,
 }: StorageInspectionSectionProps) {
@@ -71,6 +75,22 @@ export function StorageInspectionSection({
             <Switch
               checked={shouldCreateInspections}
               onCheckedChange={onShouldCreateInspectionsChange}
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-3 py-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <MaterialIcon name="flag" size="sm" className="text-muted-foreground flex-shrink-0" />
+              <div className="min-w-0">
+                <Label className="text-sm">Auto-Apply ARRIVAL_NO_ID Flag</Label>
+                <p className="text-xs text-muted-foreground truncate">
+                  On unidentified intake completion
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={shouldAutoApplyArrivalNoIdFlag}
+              onCheckedChange={onShouldAutoApplyArrivalNoIdFlagChange}
             />
           </div>
 

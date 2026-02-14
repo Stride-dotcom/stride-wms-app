@@ -14,6 +14,7 @@ import { ConfirmationGuard } from './ConfirmationGuard';
 import { Stage2DetailedReceiving } from './Stage2DetailedReceiving';
 import type { ItemMatchingParams } from './Stage2DetailedReceiving';
 import { ExceptionsTab } from './ExceptionsTab';
+import { ShipmentExceptionActions } from './ShipmentExceptionActions';
 import { useShipmentExceptions } from '@/hooks/useShipmentExceptions';
 import DockIntakeMatchingPanel from '@/components/incoming/DockIntakeMatchingPanel';
 import type { CandidateParams } from '@/hooks/useInboundCandidates';
@@ -432,6 +433,15 @@ export function ReceivingStageRouter({ shipmentId }: ReceivingStageRouterProps) 
       </TabsList>
 
       <TabsContent value="receiving">
+        <div className="mb-4">
+          <ShipmentExceptionActions
+            shipmentId={shipment.id}
+            shipmentNumber={shipment.shipment_number}
+            accountId={shipment.account_id}
+            exceptionType={shipment.shipment_exception_type}
+            onUpdated={fetchShipment}
+          />
+        </div>
         {showMatchingPanel ? (
           <>
             <div className="grid gap-6 lg:grid-cols-[1fr,380px]">

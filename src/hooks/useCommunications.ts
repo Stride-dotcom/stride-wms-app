@@ -137,6 +137,7 @@ export const TRIGGER_EVENTS = [
   // Receiving triggers
   { value: 'receiving.discrepancy_created', label: 'Receiving Discrepancy Created' },
   { value: 'receiving.exception_noted', label: 'Receiving Exception Noted' },
+  { value: 'shipment.unidentified_intake_completed', label: 'Unidentified Intake Completed' },
   { value: 'custom', label: 'Custom Event' },
 ];
 

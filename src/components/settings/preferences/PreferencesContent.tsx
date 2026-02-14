@@ -73,6 +73,7 @@ export function PreferencesContent() {
     free_storage_days: 0,
     will_call_minimum: 30,
     should_create_inspections: false,
+    auto_apply_arrival_no_id_flag: true,
     auto_assembly_on_receiving: false,
     auto_repair_on_damage: false,
     daily_storage_rate_per_cuft: 0.04,
@@ -92,6 +93,7 @@ export function PreferencesContent() {
         free_storage_days: preferences.free_storage_days,
         will_call_minimum: preferences.will_call_minimum,
         should_create_inspections: preferences.should_create_inspections,
+        auto_apply_arrival_no_id_flag: preferences.auto_apply_arrival_no_id_flag ?? true,
         auto_assembly_on_receiving: preferences.auto_assembly_on_receiving || false,
         auto_repair_on_damage: preferences.auto_repair_on_damage || false,
         daily_storage_rate_per_cuft: preferences.daily_storage_rate_per_cuft,
@@ -141,6 +143,7 @@ export function PreferencesContent() {
       free_storage_days: formData.free_storage_days,
       will_call_minimum: formData.will_call_minimum,
       should_create_inspections: formData.should_create_inspections,
+      auto_apply_arrival_no_id_flag: formData.auto_apply_arrival_no_id_flag,
       auto_assembly_on_receiving: formData.auto_assembly_on_receiving,
       auto_repair_on_damage: formData.auto_repair_on_damage,
       daily_storage_rate_per_cuft: formData.daily_storage_rate_per_cuft,
@@ -182,10 +185,12 @@ export function PreferencesContent() {
         <StorageInspectionSection
           freeStorageDays={formData.free_storage_days}
           shouldCreateInspections={formData.should_create_inspections}
+          shouldAutoApplyArrivalNoIdFlag={formData.auto_apply_arrival_no_id_flag}
           shouldAutoAssembly={formData.auto_assembly_on_receiving}
           shouldAutoRepair={formData.auto_repair_on_damage}
           onFreeStorageDaysChange={(value) => setFormData(prev => ({ ...prev, free_storage_days: value }))}
           onShouldCreateInspectionsChange={(value) => setFormData(prev => ({ ...prev, should_create_inspections: value }))}
+          onShouldAutoApplyArrivalNoIdFlagChange={(value) => setFormData(prev => ({ ...prev, auto_apply_arrival_no_id_flag: value }))}
           onShouldAutoAssemblyChange={(value) => setFormData(prev => ({ ...prev, auto_assembly_on_receiving: value }))}
           onShouldAutoRepairChange={(value) => setFormData(prev => ({ ...prev, auto_repair_on_damage: value }))}
         />

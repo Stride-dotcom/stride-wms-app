@@ -19,6 +19,7 @@ const CORE_TRIGGERS = [
   { trigger: 'shipment_delayed', name: 'Shipment Delayed', key: 'alt_shipment_delayed' },
   { trigger: 'shipment_out_for_delivery', name: 'Shipment Out for Delivery', key: 'alt_shipment_out_for_delivery' },
   { trigger: 'shipment_delivered', name: 'Shipment Delivered', key: 'alt_shipment_delivered' },
+  { trigger: 'shipment.unidentified_intake_completed', name: 'Unidentified Intake Completed', key: 'shipment_unidentified_intake_completed' },
 
   // Items
   { trigger: 'item.received', name: 'Item Received', key: 'item_received' },

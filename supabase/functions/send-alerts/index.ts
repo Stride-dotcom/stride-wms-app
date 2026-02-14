@@ -707,7 +707,25 @@ async function buildTemplateVariables(
 
         if (shipmentItems) {
           itemIds = shipmentItems.map((i: any) => i.id);
-          variables.items_count = String(itemIds.length);
+          if (itemIds.length > 0) {
+            variables.items_count = String(itemIds.length);
+          } else {
+            const { data: shipmentItemRows } = await supabase
+              .from('shipment_items')
+              .select('actual_quantity, expected_quantity')
+              .eq('shipment_id', entityId)
+              .is('deleted_at', null);
+
+            if (shipmentItemRows && shipmentItemRows.length > 0) {
+              const totalPieces = shipmentItemRows.reduce((sum: number, row: any) => {
+                const qty = Number(row.actual_quantity ?? row.expected_quantity ?? 0);
+                return sum + (Number.isFinite(qty) ? qty : 0);
+              }, 0);
+              variables.items_count = String(totalPieces);
+            } else {
+              variables.items_count = '0';
+            }
+          }
         } else {
           variables.items_count = '0';
         }
