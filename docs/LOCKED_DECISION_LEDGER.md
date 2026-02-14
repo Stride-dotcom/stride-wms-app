@@ -85,6 +85,7 @@ It captures high-impact implementation decisions, their status, and supersession
 | DL-2026-02-14-053 | Blocked page must auto-check subscription recovery and allow manual status refresh | SaaS UX | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-054 | Blocked-user destination route is /subscription/update-payment | SaaS UX | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-055 | Provide minimal admin_dev Stripe Ops observability page without credential editing | SaaS Ops | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-056 | Blocked-state allowlist includes auth, payment-update, logout, and help/support access | SaaS Enforcement | accepted | Chat Q&A (2026-02-14) | - | - |
 
 ## Detailed imports
 
@@ -193,6 +194,29 @@ This gives operational visibility for troubleshooting and status checks without 
 - Add a restricted `admin_dev` route/page for Stripe observability.
 - Include read-mostly data (subscription state lookups, webhook processing health, links to Stripe objects).
 - Exclude any in-app editing of Stripe API keys or account-level credential material.
+
+### DL-2026-02-14-056: Blocked-state allowlist includes auth, payment-update, logout, and help/support access
+- Domain: SaaS Enforcement
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+While the app is globally blocked for unpaid subscription status, allowlisted access remains available for authentication, payment update flow, logout/sign-out, and help/support routes.
+
+#### Why
+Users must be able to remediate billing, recover sessions safely, and reach support without bypassing enforcement.
+
+#### Implementation impact
+- Global block middleware/guard must exempt:
+  - `/auth`
+  - `/subscription/update-payment`
+  - logout/sign-out action route (if present)
+  - help/support route(s) where available
+- All other authenticated app routes are redirected to `/subscription/update-payment` during blocked states.
 
 ## Decision entry template (copy/paste)
 
