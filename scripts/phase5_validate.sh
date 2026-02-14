@@ -124,7 +124,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 require_cmd git
-require_cmd supabase
+if [[ "${DRY_RUN}" == "false" ]]; then
+  require_cmd supabase
+elif ! command -v supabase >/dev/null 2>&1; then
+  warn "Supabase CLI not found; dry-run will still print commands."
+fi
 
 if [[ -z "${PROJECT_REF}" ]]; then
   die "PROJECT_REF is required (use --project-ref or env var)."
