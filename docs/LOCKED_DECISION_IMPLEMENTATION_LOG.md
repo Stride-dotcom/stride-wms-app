@@ -45,6 +45,7 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-023 | 2026-02-14 | DL-2026-02-14-051..DL-2026-02-14-062 | planned | Added `docs/PHASE5_STRIPE_CLI_VALIDATION_CHECKLIST.md` | builder | Prepared executable Stripe CLI validation runbook to gather verification evidence before locking decisions. |
 | DLE-2026-02-14-024 | 2026-02-14 | DL-2026-02-14-063 | completed | Added `docs/PHASE5_DEPLOYMENT_COMMAND_SCRIPT.md` | builder | Prepared copy/paste deployment command order for schema, function deploy, secrets, Stripe CLI forwarding, validation, and post-verify locking steps. |
 | DLE-2026-02-14-025 | 2026-02-14 | DL-2026-02-14-063 | completed | Added `scripts/phase5_validate.sh` and linked docs | builder | Added non-interactive helper script for db push, function deploy, and secret updates with dry-run support. |
+| DLE-2026-02-14-026 | 2026-02-14 | DL-2026-02-14-063 | completed | Commit `f65af67` (`scripts/phase5_validate.sh`) | builder | Corrected helper behavior so dry-run mode works without local Supabase CLI installation. |
 
 ## Event template (copy/paste)
 
