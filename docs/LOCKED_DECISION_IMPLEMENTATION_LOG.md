@@ -47,6 +47,7 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-025 | 2026-02-14 | DL-2026-02-14-063 | completed | Added `scripts/phase5_validate.sh` and linked docs | builder | Added non-interactive helper script for db push, function deploy, and secret updates with dry-run support. |
 | DLE-2026-02-14-026 | 2026-02-14 | DL-2026-02-14-063 | completed | Commit `f65af67` (`scripts/phase5_validate.sh`) | builder | Corrected helper behavior so dry-run mode works without local Supabase CLI installation. |
 | DLE-2026-02-14-027 | 2026-02-14 | DL-2026-02-14-013,DL-2026-02-14-014 | planned | Updated `docs/PHASE5_SAAS_CONTINUATION_QA_PLAN.md` | builder | Explicitly tracked outstanding Phase 5.1 checkout session creator dependency (`metadata.tenant_id` source). |
+| DLE-2026-02-14-028 | 2026-02-14 | DL-2026-02-14-064,DL-2026-02-14-013,DL-2026-02-14-014 | completed | Added `create-stripe-checkout-session` edge function and Billing trigger wiring | builder | Implemented Phase 5.1 checkout session creator with `metadata.tenant_id` and Billing page Start/Manage subscription trigger. |
 
 ## Event template (copy/paste)
 

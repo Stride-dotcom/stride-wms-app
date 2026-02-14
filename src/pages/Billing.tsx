@@ -41,6 +41,7 @@ import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 
 interface Account {
   id: string;
@@ -57,7 +58,9 @@ const CHARGE_TYPE_OPTIONS = [
 export default function Billing() {
   const { profile } = useAuth();
   const { toast } = useToast();
+  const { data: gate } = useSubscriptionGate();
   const { invoices, loading: invoicesLoading, createInvoice, updateInvoiceStatus, refetch: refetchInvoices } = useInvoices();
+  const [startingSubscription, setStartingSubscription] = useState(false);
 
   // Filters and state
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -273,6 +276,36 @@ export default function Billing() {
     return <Badge variant={variants[status] || 'default'}>{status}</Badge>;
   };
 
+  const isNewSubscriber = gate?.status === 'none';
+
+  const handleSubscriptionAction = async () => {
+    setStartingSubscription(true);
+    try {
+      const functionName = isNewSubscriber
+        ? 'create-stripe-checkout-session'
+        : 'create-stripe-portal-session';
+
+      const { data, error } = await supabase.functions.invoke(functionName);
+      if (error) throw new Error(error.message);
+
+      const targetUrl = (data as { url?: string } | null)?.url;
+      if (!targetUrl) {
+        throw new Error('No Stripe redirect URL returned.');
+      }
+
+      window.location.assign(targetUrl);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to start Stripe flow.';
+      toast({
+        variant: 'destructive',
+        title: 'Subscription action failed',
+        description: message,
+      });
+    } finally {
+      setStartingSubscription(false);
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -282,6 +315,18 @@ export default function Billing() {
             accentText="Ledger"
             description="Create invoices from billable charges"
           />
+          <Button
+            onClick={() => void handleSubscriptionAction()}
+            disabled={startingSubscription}
+            className="gap-2"
+          >
+            {startingSubscription ? (
+              <MaterialIcon name="progress_activity" size="sm" className="animate-spin" />
+            ) : (
+              <MaterialIcon name="credit_card" size="sm" />
+            )}
+            {isNewSubscriber ? 'Start Subscription' : 'Manage Subscription'}
+          </Button>
         </div>
 
         <Tabs defaultValue="create" className="space-y-6">

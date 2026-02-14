@@ -93,6 +93,7 @@ It captures high-impact implementation decisions, their status, and supersession
 | DL-2026-02-14-061 | Payment data entry remains Stripe-hosted; app never collects raw card details | Security/Compliance | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-062 | Blocked-flow support uses external mailto contact (tenant company email when available) | SaaS UX | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-063 | Keep DL-051 through DL-062 in accepted state until post-deploy Stripe CLI validation | Release Governance | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-064 | Phase 5.1 checkout trigger lives on Billing page and uses dynamic Start/Manage label | SaaS Checkout | accepted | Chat Q&A (2026-02-14) | - | - |
 
 ## Detailed imports
 
@@ -361,6 +362,29 @@ Final lock should occur only after live integration behavior is verified end-to-
 #### Implementation impact
 - Keep these decisions editable in accepted state until validation evidence is captured.
 - After verification, update state to locked and append corresponding verification events in the implementation log.
+
+### DL-2026-02-14-064: Phase 5.1 checkout trigger lives on Billing page and uses dynamic Start/Manage label
+- Domain: SaaS Checkout
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+Expose subscription initiation/management from the Billing page with one action button that changes label by scenario:
+- `Start Subscription` for new subscribers (no subscription row / status `none`)
+- `Manage Subscription` for existing subscribers (renew/recovery/management flow)
+
+#### Why
+This provides a single discoverable entry point while preserving clearer user intent by state.
+
+#### Implementation impact
+- Billing page button invokes:
+  - checkout session creator for new subscribers
+  - customer portal session creator for existing subscribers
+- Phase 5.1 checkout creator must set `metadata.tenant_id` for webhook bootstrap reliability.
 
 ## Decision entry template (copy/paste)
 

@@ -20,6 +20,7 @@ Security boundary decision captured: `DL-2026-02-14-061` (accepted) keeps paymen
 Support-channel decision captured: `DL-2026-02-14-062` (accepted) uses external mailto support from blocked flow.
 Release-governance decision captured: `DL-2026-02-14-063` (accepted) keeps DL-051..DL-062 accepted until post-deploy Stripe CLI validation.
 Authoritative outstanding item from the source record: **Phase 5.1 checkout session creator** that sets `metadata.tenant_id`.
+Checkout-trigger decision captured: `DL-2026-02-14-064` (accepted) places trigger on Billing page with dynamic Start/Manage label.
 
 ## Current implementation snapshot
 
@@ -45,12 +46,11 @@ Confirmed present in repo:
 
 ## Planned continuation sequence
 
-1. **Implement Phase 5.1 checkout session creator** (sets `metadata.tenant_id` on Stripe checkout creation).
-2. **Deploy new edge function** `create-stripe-portal-session` with env vars (`STRIPE_SECRET_KEY`, `APP_URL`).
-3. **Deploy updated stripe-webhook** and verify event mapping behavior in environment.
-4. **Run Stripe CLI integration tests** (payment failed -> blocked redirect; payment fixed -> unlock recovery).
-5. **Lock accepted decisions DL-051..DL-062** after deployment verification.
-6. **Log final verification evidence** in `docs/LOCKED_DECISION_IMPLEMENTATION_LOG.md`.
+1. **Deploy new edge functions** `create-stripe-checkout-session` and `create-stripe-portal-session` with env vars (`STRIPE_SECRET_KEY`, `APP_URL`).
+2. **Deploy updated stripe-webhook** and verify event mapping behavior in environment.
+3. **Run Stripe CLI integration tests** (checkout bootstrap + payment failed -> blocked redirect + payment fixed -> unlock recovery).
+4. **Lock accepted decisions DL-051..DL-062** after deployment verification.
+5. **Log final verification evidence** in `docs/LOCKED_DECISION_IMPLEMENTATION_LOG.md`.
 
 Execution checklist:
 - `docs/PHASE5_STRIPE_CLI_VALIDATION_CHECKLIST.md`
@@ -69,5 +69,5 @@ For each unresolved item:
 
 ## Open questions queue (ask serially)
 
-1. Where should the first Phase 5.1 checkout trigger live in-app (Billing page, Settings page, or dedicated subscription page)?
+1. Should Phase 5.1 checkout use a single default active plan (current implementation), or should users choose among active plans in UI?
 
