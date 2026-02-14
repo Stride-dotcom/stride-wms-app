@@ -22,6 +22,8 @@ Release-governance decision captured: `DL-2026-02-14-063` (accepted) keeps DL-05
 Authoritative outstanding item from the source record: **Phase 5.1 checkout session creator** that sets `metadata.tenant_id`.
 Checkout-trigger decision captured: `DL-2026-02-14-064` (accepted) places trigger on Billing page with dynamic Start/Manage label.
 Pricing-model decision captured: `DL-2026-02-14-065` (accepted) keeps one base plan and adds optional SMS add-on track.
+SMS onboarding decision captured: `DL-2026-02-14-066` (accepted) activates SMS post-checkout in Settings with form + terms.
+Billing visibility decision captured: `DL-2026-02-14-067` (accepted) requires subscription + SMS status visibility in Billing page.
 
 ## Current implementation snapshot
 
@@ -73,5 +75,5 @@ For each unresolved item:
 
 ## Open questions queue (ask serially)
 
-1. Should SMS add-on be selected during checkout (single flow) or managed post-checkout in subscription management flow?
+1. For SMS activation terms, should acceptance be captured as a required checkbox + timestamp + accepted-by user id in DB?
 

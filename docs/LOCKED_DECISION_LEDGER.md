@@ -95,6 +95,8 @@ It captures high-impact implementation decisions, their status, and supersession
 | DL-2026-02-14-063 | Keep DL-051 through DL-062 in accepted state until post-deploy Stripe CLI validation | Release Governance | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-064 | Phase 5.1 checkout trigger lives on Billing page and uses dynamic Start/Manage label | SaaS Checkout | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-065 | Subscription offering remains single base plan with optional SMS add-on track | SaaS Pricing Model | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-066 | SMS add-on activation happens post-checkout in app Settings with form and terms acceptance | SaaS SMS Add-on | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-067 | Billing page must show consolidated subscription details including SMS add-on status | SaaS Billing UX | accepted | Chat Q&A (2026-02-14) | - | - |
 
 ## Detailed imports
 
@@ -405,6 +407,45 @@ This preserves a simple base subscription while allowing extensibility for messa
 #### Implementation impact
 - Checkout and plan governance should remain compatible with a single base plan + optional add-on model.
 - SMS add-on automation may be delivered in a parallel implementation stream.
+
+### DL-2026-02-14-066: SMS add-on activation happens post-checkout in app Settings with form and terms acceptance
+- Domain: SaaS SMS Add-on
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+Users activate SMS add-on after subscription checkout from the app Settings page, where they complete required onboarding form fields and explicitly agree to terms.
+
+#### Why
+SMS onboarding has additional compliance/setup requirements that are separate from base subscription purchase.
+
+#### Implementation impact
+- Add or extend Settings SMS activation workflow with required form + terms acceptance capture.
+- Activation should not be part of initial checkout flow.
+- SMS billing eligibility should be gated by successful activation state.
+
+### DL-2026-02-14-067: Billing page must show consolidated subscription details including SMS add-on status
+- Domain: SaaS Billing UX
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+Billing page should present complete subscription information, including base subscription state and SMS add-on status/activation visibility.
+
+#### Why
+Users need one billing view for account standing and add-on state.
+
+#### Implementation impact
+- Extend Billing page UI with subscription summary panel.
+- Include SMS add-on status fields and billing-relevant metadata in that summary.
 
 ## Decision entry template (copy/paste)
 
