@@ -88,6 +88,12 @@ export function TwilioSmsCard({ settings, tenantId, onUpdate }: TwilioSmsCardPro
   // --- Validation errors ---
   const [errors, setErrors] = useState<Record<string, string | null>>({});
 
+  // Build the opt-in URL for this tenant
+  const optInUrl = (() => {
+    const baseUrl = settings?.app_base_url || (typeof window !== 'undefined' ? window.location.origin : '');
+    return `${baseUrl}/sms/opt-in?t=${tenantId}`;
+  })();
+
   // Load from settings
   useEffect(() => {
     if (!settings) return;
@@ -109,9 +115,10 @@ export function TwilioSmsCard({ settings, tenantId, onUpdate }: TwilioSmsCardPro
     setOptInType(settings.sms_opt_in_type || '');
     setUseCaseCategories(settings.sms_use_case_categories || '');
     setNotificationEmail(settings.sms_notification_email || '');
-    setProofOfConsentUrl(settings.sms_proof_of_consent_url || '');
+    // Auto-populate proof of consent URL with opt-in page URL if not already set
+    setProofOfConsentUrl(settings.sms_proof_of_consent_url || optInUrl);
     setAdditionalInfo(settings.sms_additional_info || '');
-  }, [settings]);
+  }, [settings, optInUrl]);
 
   // --- Validate on change ---
   const validate = (enabledOverride?: boolean): boolean => {
@@ -418,6 +425,73 @@ export function TwilioSmsCard({ settings, tenantId, onUpdate }: TwilioSmsCardPro
             SMS will not send until <code className="bg-muted px-1 py-0.5 rounded">TWILIO_AUTH_TOKEN</code> is
             configured in Supabase secrets and the <code className="bg-muted px-1 py-0.5 rounded">send-sms-test</code> function is deployed.
           </p>
+        </div>
+
+        <Separator />
+
+        {/* Opt-In URL for Twilio Verification */}
+        <div className="space-y-3">
+          <h4 className="text-sm font-medium flex items-center gap-2">
+            <MaterialIcon name="link" size="sm" />
+            Your Public Opt-In URL
+          </h4>
+          <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-900">
+            <MaterialIcon name="warning" size="sm" className="text-amber-600" />
+            <AlertDescription className="text-sm text-amber-800 dark:text-amber-200 space-y-2">
+              <p className="font-medium">Twilio Error 30509: Opt-in workflow required</p>
+              <p>
+                During toll-free verification, Twilio requires a <strong>publicly accessible URL</strong> where
+                users can opt in to receive SMS messages. Copy the URL below and paste it into Twilio&apos;s
+                verification form under &ldquo;Opt-In URL&rdquo; or &ldquo;Proof of Consent URL&rdquo;.
+              </p>
+              <ol className="list-decimal list-inside space-y-0.5 text-xs mt-2">
+                <li>Copy your Opt-In URL below</li>
+                <li>Go to Twilio Console &rarr; Phone Numbers &rarr; Toll-Free Verification</li>
+                <li>Paste the URL in the <strong>opt-in workflow / proof of consent</strong> field</li>
+                <li>Also fill in the messaging use case, compliance messages, and legal links in the section below</li>
+                <li>Submit for verification</li>
+              </ol>
+            </AlertDescription>
+          </Alert>
+          <div className="space-y-1.5">
+            <div className="flex gap-2">
+              <Input
+                readOnly
+                value={optInUrl}
+                className="font-mono text-sm bg-muted/50 flex-1"
+                onClick={(e) => (e.target as HTMLInputElement).select()}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                onClick={() => handleCopy(optInUrl, 'Opt-In URL')}
+                title="Copy Opt-In URL"
+              >
+                <MaterialIcon name="content_copy" size="sm" />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                onClick={() => window.open(optInUrl, '_blank')}
+                title="Open Opt-In Page"
+              >
+                <MaterialIcon name="open_in_new" size="sm" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              This is the publicly accessible URL where recipients consent to receive SMS. Paste this into
+              Twilio&apos;s toll-free verification form.
+              {!settings?.app_base_url && (
+                <span className="text-amber-600 font-medium">
+                  {' '}Set your Portal URL in Organization Settings to use your custom domain.
+                </span>
+              )}
+            </p>
+          </div>
         </div>
 
         <Separator />

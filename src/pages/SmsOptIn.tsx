@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 
 interface TenantInfo {
@@ -90,6 +91,8 @@ export default function SmsOptIn() {
     }
   };
 
+  const companyName = tenantInfo?.company_name || 'our company';
+
   // Loading
   if (loading) {
     return (
@@ -127,8 +130,6 @@ export default function SmsOptIn() {
     );
   }
 
-  const companyName = tenantInfo.company_name || 'our company';
-
   // Success
   if (success) {
     return (
@@ -149,7 +150,7 @@ export default function SmsOptIn() {
                 <MaterialIcon name="check_circle" size="xl" className="text-green-600" />
               </div>
             </div>
-            <CardTitle>You're Subscribed!</CardTitle>
+            <CardTitle>You&apos;re Subscribed!</CardTitle>
             <CardDescription>
               You have opted in to receive SMS notifications from {companyName}.
             </CardDescription>
@@ -163,11 +164,35 @@ export default function SmsOptIn() {
                 </AlertDescription>
               </Alert>
             )}
-            <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground space-y-1">
+            <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground space-y-2">
               <p>You can opt out at any time by replying <strong>STOP</strong> to any message.</p>
               <p>Reply <strong>HELP</strong> for assistance.</p>
-              <p>Message & data rates may apply.</p>
+              <p>Message and data rates may apply. Message frequency varies.</p>
             </div>
+            {(tenantInfo.sms_privacy_policy_url || tenantInfo.sms_terms_conditions_url) && (
+              <div className="flex justify-center gap-4 text-sm">
+                {tenantInfo.sms_privacy_policy_url && (
+                  <a
+                    href={tenantInfo.sms_privacy_policy_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline"
+                  >
+                    Privacy Policy
+                  </a>
+                )}
+                {tenantInfo.sms_terms_conditions_url && (
+                  <a
+                    href={tenantInfo.sms_terms_conditions_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline"
+                  >
+                    Terms &amp; Conditions
+                  </a>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -193,14 +218,24 @@ export default function SmsOptIn() {
               <MaterialIcon name="sms" size="lg" className="text-primary" />
             </div>
           </div>
-          <CardTitle>SMS Notifications</CardTitle>
+          <CardTitle>SMS Notifications Opt-In</CardTitle>
           <CardDescription>
-            Subscribe to receive SMS notifications from {companyName}
+            Subscribe to receive SMS text message notifications from {companyName}.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
+          {/* What you'll receive */}
+          <div className="bg-primary/5 rounded-lg p-4 text-sm space-y-2">
+            <p className="font-medium text-foreground">What you&apos;ll receive:</p>
+            <ul className="list-disc list-inside text-muted-foreground space-y-1">
+              <li>Shipment arrival and status updates</li>
+              <li>Inventory alerts and notifications</li>
+              <li>Account and order notifications</li>
+            </ul>
+          </div>
+
           <div className="space-y-1.5">
-            <Label htmlFor="phone">Phone Number</Label>
+            <Label htmlFor="phone">Mobile Phone Number <span className="text-destructive">*</span></Label>
             <Input
               id="phone"
               value={phone}
@@ -208,59 +243,89 @@ export default function SmsOptIn() {
               placeholder="+1 (555) 123-4567"
               className="font-mono"
               type="tel"
+              autoComplete="tel"
             />
             <p className="text-xs text-muted-foreground">
-              Enter your mobile phone number to receive SMS alerts
+              Enter your mobile phone number to receive SMS text message alerts.
             </p>
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="name">Name (optional)</Label>
+            <Label htmlFor="name">Name <span className="text-xs text-muted-foreground">(optional)</span></Label>
             <Input
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Your name"
+              autoComplete="name"
             />
           </div>
 
-          <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground space-y-2">
+          <Separator />
+
+          {/* Compliance disclosure */}
+          <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground space-y-3">
+            <p className="font-medium text-foreground">SMS Program Terms:</p>
             <p>
-              By subscribing, you agree to receive automated SMS notifications
-              from {companyName} about shipment updates, inventory alerts, and
+              By opting in, you consent to receive automated SMS text messages
+              from <strong className="text-foreground">{companyName}</strong> at the mobile number provided.
+              Messages may include shipment updates, inventory alerts, and
               account notifications.
             </p>
-            <p>
-              Message frequency varies. Message & data rates may apply.
-              Reply <strong>STOP</strong> to cancel, <strong>HELP</strong> for help.
+            <ul className="space-y-1.5">
+              <li className="flex items-start gap-2">
+                <MaterialIcon name="schedule" size="sm" className="mt-0.5 shrink-0" />
+                <span><strong>Message frequency:</strong> Varies based on account activity. Typically 1-10 messages per week.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <MaterialIcon name="payments" size="sm" className="mt-0.5 shrink-0" />
+                <span><strong>Message and data rates may apply.</strong> Contact your carrier for details.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <MaterialIcon name="cancel" size="sm" className="mt-0.5 shrink-0" />
+                <span>Reply <strong>STOP</strong> at any time to opt out and stop receiving messages.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <MaterialIcon name="help" size="sm" className="mt-0.5 shrink-0" />
+                <span>Reply <strong>HELP</strong> for help or contact information.</span>
+              </li>
+            </ul>
+            <p className="text-xs">
+              Consent is not a condition of purchase. You may opt out at any time.
             </p>
             {(tenantInfo.sms_privacy_policy_url || tenantInfo.sms_terms_conditions_url) && (
-              <p className="flex gap-3">
-                {tenantInfo.sms_privacy_policy_url && (
-                  <a
-                    href={tenantInfo.sms_privacy_policy_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary underline"
-                  >
-                    Privacy Policy
-                  </a>
-                )}
-                {tenantInfo.sms_terms_conditions_url && (
-                  <a
-                    href={tenantInfo.sms_terms_conditions_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary underline"
-                  >
-                    Terms & Conditions
-                  </a>
-                )}
-              </p>
+              <>
+                <Separator className="my-2" />
+                <p className="flex gap-3 flex-wrap">
+                  {tenantInfo.sms_privacy_policy_url && (
+                    <a
+                      href={tenantInfo.sms_privacy_policy_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary underline inline-flex items-center gap-1"
+                    >
+                      <MaterialIcon name="shield" size="sm" />
+                      Privacy Policy
+                    </a>
+                  )}
+                  {tenantInfo.sms_terms_conditions_url && (
+                    <a
+                      href={tenantInfo.sms_terms_conditions_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary underline inline-flex items-center gap-1"
+                    >
+                      <MaterialIcon name="gavel" size="sm" />
+                      Terms &amp; Conditions
+                    </a>
+                  )}
+                </p>
+              </>
             )}
           </div>
 
-          <div className="flex items-start gap-3">
+          {/* Consent checkbox */}
+          <div className="flex items-start gap-3 p-3 border rounded-lg bg-background">
             <Checkbox
               id="agree"
               checked={agreed}
@@ -268,8 +333,10 @@ export default function SmsOptIn() {
               className="mt-0.5"
             />
             <label htmlFor="agree" className="text-sm leading-snug cursor-pointer">
-              I agree to receive SMS notifications from {companyName} and acknowledge
-              the terms above.
+              I consent to receive automated SMS text messages from{' '}
+              <strong>{companyName}</strong> at the phone number provided. I understand that
+              message and data rates may apply, message frequency varies, and I can reply STOP
+              to opt out at any time.
             </label>
           </div>
 
@@ -297,6 +364,14 @@ export default function SmsOptIn() {
               </>
             )}
           </Button>
+
+          {/* Footer compliance text */}
+          <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
+            By clicking &ldquo;Subscribe&rdquo; you agree to receive recurring automated
+            promotional and informational text messages from {companyName}.
+            Consent is not a condition of any purchase. Reply STOP to cancel, HELP for help.
+            Msg &amp; data rates may apply.
+          </p>
         </CardContent>
       </Card>
     </div>
