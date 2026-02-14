@@ -54,6 +54,7 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-032 | 2026-02-14 | DL-2026-02-14-066,DL-2026-02-14-067 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted post-checkout SMS and billing-visibility decisions | builder | Captured Settings-based SMS activation/terms flow and Billing summary visibility as next implementation scope. |
 | DLE-2026-02-14-033 | 2026-02-14 | DL-2026-02-14-068 | completed | Added `supabase/migrations/20260215013000_saas_sms_addon_activation.sql`, `src/hooks/useSmsAddonActivation.ts` | builder | Implemented tenant-level SMS terms acceptance audit schema and activation RPC capturing version/time/user/ip/user-agent/source. |
 | DLE-2026-02-14-034 | 2026-02-14 | DL-2026-02-14-066,DL-2026-02-14-067 | completed | Added `src/components/settings/SmsAddonActivationCard.tsx`; updated `OrganizationSettingsTab.tsx` and `src/pages/Billing.tsx` | builder | Added Settings SMS activation card with readiness + terms confirmation and Billing subscription summary including SMS add-on state. |
+| DLE-2026-02-14-035 | 2026-02-14 | DL-2026-02-14-066,DL-2026-02-14-067,DL-2026-02-14-068 | verified | `npx tsc --noEmit`, `npm run build` (post commit `73d378c`) | builder | Local static validation passed for SMS activation schema/RPC and Settings/Billing UX updates. |
 
 ## Event template (copy/paste)
 
