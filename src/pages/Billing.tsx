@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/ui/page-header';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -462,6 +463,16 @@ export default function Billing() {
                     <p className="text-sm font-mono">{truncateStripeId(subscriptionSnapshot?.stripe_customer_id)}</p>
                   </div>
                 </div>
+
+                {smsActivationStatus === 'disabled' && (
+                  <Alert>
+                    <MaterialIcon name="history" size="sm" />
+                    <AlertDescription className="text-sm">
+                      SMS add-on is disabled. Historical SMS billing/report records remain available as read-only
+                      history.
+                    </AlertDescription>
+                  </Alert>
+                )}
 
                 {!smsAddonActivation?.is_active && (
                   <div className="flex justify-end">

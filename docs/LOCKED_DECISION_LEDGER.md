@@ -99,6 +99,7 @@ It captures high-impact implementation decisions, their status, and supersession
 | DL-2026-02-14-067 | Billing page must show consolidated subscription details including SMS add-on status | SaaS Billing UX | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-068 | SMS terms acceptance audit must capture version/time/user/ip/user-agent/source | SaaS Compliance | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-069 | Tenant admins can self-deactivate SMS add-on from Settings | SaaS SMS Add-on | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-070 | Historical SMS billing/report records remain visible as read-only after deactivation | SaaS Billing UX | accepted | Chat Q&A (2026-02-14) | - | - |
 
 ## Detailed imports
 
@@ -489,6 +490,25 @@ Self-service deactivation reduces support dependency and gives tenant admins dir
 - Add a tenant-admin deactivation RPC and audit log event for self-service deactivation.
 - Expose a deactivation action in Settings SMS add-on activation UI with explicit confirmation.
 - Reflect `disabled` SMS add-on status in Billing summary visibility.
+
+### DL-2026-02-14-070: Historical SMS billing/report records remain visible as read-only after deactivation
+- Domain: SaaS Billing UX
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+When SMS add-on is deactivated, existing SMS billing/report records stay visible to tenant users as read-only history.
+
+#### Why
+Preserving historical records supports auditability, operational reconciliation, and user trust without allowing retroactive edits.
+
+#### Implementation impact
+- Do not delete or hide historical SMS billing/report data during self-deactivation flow.
+- Billing UX should communicate that deactivated SMS history remains visible in read-only mode.
 
 ## Decision entry template (copy/paste)
 

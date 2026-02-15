@@ -58,6 +58,8 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-036 | 2026-02-14 | DL-2026-02-14-069 | completed | Added `supabase/migrations/20260215015500_sms_addon_self_deactivation.sql` | builder | Added tenant-admin self-deactivation RPC with deactivation audit event and automatic `sms_enabled=false` safety update. |
 | DLE-2026-02-14-037 | 2026-02-14 | DL-2026-02-14-069,DL-2026-02-14-067 | completed | Updated `src/hooks/useSmsAddonActivation.ts`, `src/components/settings/SmsAddonActivationCard.tsx`, `src/pages/Billing.tsx` | builder | Added self-deactivate action in Settings (with confirmation) and surfaced `disabled` SMS add-on status in Billing summary. |
 | DLE-2026-02-14-038 | 2026-02-14 | DL-2026-02-14-069 | verified | `npx tsc --noEmit`, `npm run build` (post commit `81e21ed`) | builder | Local static verification passed for self-deactivation RPC + Settings/Billing self-service UX updates. |
+| DLE-2026-02-14-039 | 2026-02-14 | DL-2026-02-14-070 | completed | Updated `docs/LOCKED_DECISION_LEDGER.md` and `docs/PHASE5_SAAS_CONTINUATION_QA_PLAN.md` | builder | Captured accepted decision that deactivated SMS history remains visible as read-only in tenant-facing billing/report views. |
+| DLE-2026-02-14-040 | 2026-02-14 | DL-2026-02-14-070 | completed | Updated `src/pages/Billing.tsx` summary messaging | builder | Added explicit Billing UI note that disabled SMS status retains read-only historical billing/report visibility. |
 
 ## Event template (copy/paste)
 

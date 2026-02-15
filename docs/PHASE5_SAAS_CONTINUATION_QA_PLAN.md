@@ -26,6 +26,7 @@ SMS onboarding decision captured: `DL-2026-02-14-066` (accepted) activates SMS p
 Billing visibility decision captured: `DL-2026-02-14-067` (accepted) requires subscription + SMS status visibility in Billing page.
 SMS terms audit decision captured: `DL-2026-02-14-068` (accepted) requires version/time/user/ip/user-agent/source capture.
 SMS lifecycle control decision captured: `DL-2026-02-14-069` (accepted) allows tenant-admin self-deactivation in Settings.
+Historical visibility decision captured: `DL-2026-02-14-070` (accepted) keeps SMS billing/report history visible as read-only after deactivation.
 
 ## Current implementation snapshot
 
@@ -83,5 +84,5 @@ For each unresolved item:
 
 ## Open questions queue (ask serially)
 
-1. On self-deactivation, should we preserve historical SMS add-on billing/report records as read-only history (recommended default), or hide them from tenant-facing billing views?
+1. Should SMS reactivation require terms re-acceptance every time (current implementation), or only when terms_version changes?
 
