@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { parseFileToRows, canonicalizeHeader } from '@/lib/importUtils';
+import { parseDisplayLocationType, toStoredLocationType } from '@/lib/locationTypeUtils';
 
 interface CSVImportDialogProps {
   open: boolean;
@@ -55,32 +56,27 @@ const LOCATION_HEADER_ALIASES: Record<string, string> = {
 
 function detectLocationType(code: string): string {
   const upperCode = code.toUpperCase();
-  
-  // Zones - typically single word descriptive areas
-  if (upperCode.includes('DOCK') || upperCode.includes('ZONE') || 
-      upperCode === 'IA' || upperCode === 'I-J' || upperCode === 'E-F' || upperCode === 'G-H' ||
-      upperCode.includes('OVERFLOW') || upperCode.includes('CAP') ||
-      upperCode.includes('STAGING') || upperCode.includes('RECEIVING')) {
-    return 'zone';
+
+  if (upperCode.includes('DOCK')) {
+    return 'dock';
   }
-  
-  // Bays - BAY-* pattern or SW*, WW* staging areas
-  if (upperCode.startsWith('BAY-') || /^SW\d*$/.test(upperCode) || 
-      /^WW\d*$/.test(upperCode)) {
+
+  if (upperCode.startsWith('BAY-') || /^SW\d*$/.test(upperCode) || /^WW\d*$/.test(upperCode)) {
     return 'bay';
   }
-  
-  // Aisles - *RR.* pattern (rack rows) or EFR*, GHR*, IJR* patterns
+
   if (/^[A-Z]+RR\.\d+$/.test(upperCode) || /^[A-Z]+R\d+$/.test(upperCode)) {
     return 'aisle';
   }
-  
-  // Bins - alphanumeric with dots (e.g., A1.2W, B3.4C)
+
+  if (upperCode.startsWith('SHELF-') || upperCode.startsWith('SHLF-')) {
+    return 'shelf';
+  }
+
   if (/^[A-Z]\d+\.\d+[WCE]?$/.test(upperCode)) {
     return 'bin';
   }
-  
-  // Default to bin for unknown patterns
+
   return 'bin';
 }
 
@@ -118,7 +114,8 @@ async function parseFile(file: File): Promise<ParsedLocation[]> {
       const code = rawCode.toUpperCase();
       const name = nameIdx >= 0 ? String(row[nameIdx] ?? '').trim() : '';
       const typeValue = typeIdx >= 0 ? String(row[typeIdx] ?? '').trim().toLowerCase() : '';
-      const type = typeValue || detectLocationType(code);
+      const parsedType = parseDisplayLocationType(typeValue);
+      const type = parsedType || detectLocationType(code);
       
       locations.push({ code, name, type });
     }
@@ -210,7 +207,7 @@ export function CSVImportDialog({
         const insertData = batch.map((loc) => ({
           code: loc.code,
           name: loc.name || null,
-          type: loc.type,
+          type: toStoredLocationType(loc.type),
           warehouse_id: selectedWarehouse,
           status: 'active',
         }));

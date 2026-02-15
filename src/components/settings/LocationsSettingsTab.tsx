@@ -43,6 +43,12 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import {
+  DISPLAY_LOCATION_TYPE_BADGE_COLORS,
+  getLocationTypeLabel,
+  normalizeLocationType,
+  parseDisplayLocationType,
+} from '@/lib/locationTypeUtils';
 
 interface LocationsSettingsTabProps {
   locations: Location[];
@@ -84,12 +90,6 @@ export function LocationsSettingsTab({
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [showArchived, setShowArchived] = useState(false);
-
-  // Fast Add state
-  const [fastAddValue, setFastAddValue] = useState('');
-  const [fastAddLoading, setFastAddLoading] = useState(false);
-  const [autoUppercase, setAutoUppercase] = useState(true);
-  const fastAddInputRef = useRef<HTMLInputElement>(null);
 
   // Default shipment location state
   const [defaultRecvLocationId, setDefaultRecvLocationId] = useState<string>('');
@@ -200,85 +200,6 @@ export function LocationsSettingsTab({
     
     return true;
   });
-
-  // Fast Add handler
-  const handleFastAdd = async () => {
-    const code = fastAddValue.trim();
-    if (!code) return;
-
-    // Auto-uppercase if enabled
-    const finalCode = autoUppercase ? code.toUpperCase() : code;
-
-    // Get warehouse ID
-    const warehouseId = selectedWarehouse !== 'all' 
-      ? selectedWarehouse 
-      : warehouses.length === 1 
-        ? warehouses[0].id 
-        : null;
-
-    if (!warehouseId) {
-      toast({
-        variant: 'destructive',
-        title: 'Select a warehouse',
-        description: 'Please select a warehouse before adding locations.',
-      });
-      return;
-    }
-
-    // Check for duplicate in current warehouse
-    const existingLocation = locations.find(
-      l => l.code.toLowerCase() === finalCode.toLowerCase() && l.warehouse_id === warehouseId
-    );
-
-    if (existingLocation) {
-      toast({
-        variant: 'destructive',
-        title: 'Duplicate location',
-        description: `Location "${finalCode}" already exists in this warehouse.`,
-      });
-      return;
-    }
-
-    setFastAddLoading(true);
-    try {
-      const { error } = await supabase.from('locations').insert({
-        code: finalCode,
-        warehouse_id: warehouseId,
-        type: 'bin',
-        status: 'active',
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: 'Location added',
-        description: `${finalCode} has been created.`,
-      });
-
-      setFastAddValue('');
-      fastAddInputRef.current?.focus();
-      onRefresh();
-    } catch (error: any) {
-      console.error('Error adding location:', error);
-      const isDuplicate = error.code === '23505';
-      toast({
-        variant: 'destructive',
-        title: isDuplicate ? 'Duplicate location' : 'Error',
-        description: isDuplicate 
-          ? `Location "${finalCode}" already exists.` 
-          : 'Failed to add location.',
-      });
-    } finally {
-      setFastAddLoading(false);
-    }
-  };
-
-  const handleFastAddKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleFastAdd();
-    }
-  };
 
   const handleDeleteClick = (location: Location) => {
     setLocationToDelete(location);
@@ -398,7 +319,13 @@ export function LocationsSettingsTab({
   };
 
   const handleDownloadTemplate = () => {
-    const template = 'location_name,warehouse_name\nBAY-01,\nBAY-02,\nREC-DOCK,';
+    const template = [
+      'location_name,warehouse_name,type,status',
+      'A1.1,,bin,active',
+      'BAY-01,,bay,active',
+      'DOCK-01,,dock,active',
+      'AREA-A,,area,active',
+    ].join('\n');
     const blob = new Blob([template], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -414,7 +341,7 @@ export function LocationsSettingsTab({
     const csvRows = ['location_name,warehouse_name,type,status'];
     filteredLocations.forEach(loc => {
       const warehouse = warehouseMap.get(loc.warehouse_id);
-      csvRows.push(`${loc.code},${warehouse?.name || ''},${loc.type},${loc.status}`);
+      csvRows.push(`${loc.code},${warehouse?.name || ''},${normalizeLocationType(getDisplayType(loc))},${loc.status}`);
     });
     const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -444,20 +371,23 @@ export function LocationsSettingsTab({
   };
 
   const getTypeBadge = (type: string) => {
-    const colors: Record<string, string> = {
-      zone: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-      aisle: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-      bay: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-      bin: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-      shelf: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
-      dock: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
-      release: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-    };
+    const normalizedType = normalizeLocationType(type);
     return (
-      <Badge variant="outline" className={colors[type] || ''}>
-        {type.charAt(0).toUpperCase() + type.slice(1)}
+      <Badge variant="outline" className={DISPLAY_LOCATION_TYPE_BADGE_COLORS[normalizedType]}>
+        {getLocationTypeLabel(type)}
       </Badge>
     );
+  };
+
+  const getDisplayType = (location: Location): string => {
+    if (parseDisplayLocationType(location.type)) {
+      return location.type;
+    }
+    const legacyLocationType = (location as any).location_type as string | null | undefined;
+    if (parseDisplayLocationType(legacyLocationType)) {
+      return legacyLocationType as string;
+    }
+    return location.type;
   };
 
   const activeCount = locations.filter(l => (l as any).is_active !== false).length;
@@ -466,54 +396,6 @@ export function LocationsSettingsTab({
   return (
     <>
       <div className="space-y-4">
-        {/* Fast Add Card */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <MaterialIcon name="add" size="sm" />
-              Quick Add Bay
-            </CardTitle>
-            <CardDescription>
-              Press Enter to add instantly. Auto-uppercase enabled.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-3 items-end">
-              <div className="flex-1 space-y-1">
-                <Label htmlFor="fast-add" className="sr-only">Location Name</Label>
-                <Input
-                  id="fast-add"
-                  ref={fastAddInputRef}
-                  placeholder="Enter location code (e.g., BAY-01)"
-                  value={fastAddValue}
-                  onChange={(e) => setFastAddValue(autoUppercase ? e.target.value.toUpperCase() : e.target.value)}
-                  onKeyDown={handleFastAddKeyDown}
-                  disabled={fastAddLoading}
-                  className="font-mono"
-                />
-              </div>
-              {warehouses.length > 1 && selectedWarehouse === 'all' && (
-                <Select value={selectedWarehouse} onValueChange={handleWarehouseFilterChange}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Select warehouse" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {warehouses.map((warehouse) => (
-                      <SelectItem key={warehouse.id} value={warehouse.id}>
-                        {warehouse.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              <Button onClick={handleFastAdd} disabled={fastAddLoading || !fastAddValue.trim()}>
-                {fastAddLoading ? <MaterialIcon name="progress_activity" size="sm" className="animate-spin" /> : <MaterialIcon name="add" size="sm" />}
-                <span className="ml-2">Add</span>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Default Shipment Locations Card - only visible when a specific warehouse is selected */}
         {selectedWarehouse && selectedWarehouse !== 'all' && (
           <Card>
@@ -612,14 +494,14 @@ export function LocationsSettingsTab({
           </Card>
         )}
 
-        {/* Bays List Card */}
+        {/* Storage Locations List Card */}
         <Card>
           <CardHeader>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-2">
                 <MaterialIcon name="location_on" size="md" />
                 <div>
-                  <CardTitle>Bays</CardTitle>
+                  <CardTitle>Storage Locations</CardTitle>
                   <CardDescription>
                     {activeCount} active • {archivedCount} archived
                   </CardDescription>
@@ -653,7 +535,7 @@ export function LocationsSettingsTab({
                 )}
                 <Button size="sm" onClick={onCreate}>
                   <MaterialIcon name="add" size="sm" className="mr-2" />
-                  Add Bay
+                  Add Location
                 </Button>
               </div>
             </div>
@@ -664,7 +546,7 @@ export function LocationsSettingsTab({
               <div className="relative flex-1">
                 <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search bays..."
+                  placeholder="Search storage locations..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9"
@@ -702,7 +584,7 @@ export function LocationsSettingsTab({
                 <MaterialIcon name="location_on" size="lg" className="text-muted-foreground mb-3" />
                 <p className="text-muted-foreground">
                   {locations.length === 0 
-                    ? 'No locations yet. Use Quick Add above!' 
+                    ? 'No storage locations yet. Use Add Location to create one.'
                     : showArchived 
                       ? 'No archived locations'
                       : 'No locations match your search'}
@@ -750,13 +632,13 @@ export function LocationsSettingsTab({
                             {location.code}
                           </TableCell>
                           <TableCell>{location.name || '—'}</TableCell>
-                          <TableCell>{getTypeBadge(location.type)}</TableCell>
+                          <TableCell>{getTypeBadge(getDisplayType(location))}</TableCell>
                           <TableCell className="text-muted-foreground text-sm">
                             {warehouse?.name || '—'}
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">
-                            {(location as any).capacity_cuft != null
-                              ? `${Number((location as any).capacity_cuft).toFixed(1)} cuft`
+                            {((location as any).capacity_cuft ?? location.capacity_cu_ft) != null
+                              ? `${Number((location as any).capacity_cuft ?? location.capacity_cu_ft).toFixed(1)} cuft`
                               : '\u2014'}
                           </TableCell>
                           <TableCell>{getStatusBadge(location.status, isActive)}</TableCell>
@@ -764,7 +646,9 @@ export function LocationsSettingsTab({
                             {location.capacity_sq_ft != null ? location.capacity_sq_ft : '—'}
                           </TableCell>
                           <TableCell className="text-right text-sm text-muted-foreground">
-                            {location.capacity_cu_ft != null ? location.capacity_cu_ft : '—'}
+                            {(location.capacity_cu_ft ?? (location as any).capacity_cuft) != null
+                              ? (location.capacity_cu_ft ?? (location as any).capacity_cuft)
+                              : '—'}
                           </TableCell>
                           <TableCell onClick={(e) => e.stopPropagation()}>
                             <DropdownMenu>
