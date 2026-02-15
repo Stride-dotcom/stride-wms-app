@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
+import { Link } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -366,6 +367,15 @@ export default function SmsSenderOps() {
           accentText="Ops"
           description="Admin-dev controls for platform-managed toll-free sender provisioning and verification."
         />
+
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/admin/billing-overrides-ops">
+              <MaterialIcon name="money_off" size="sm" className="mr-2" />
+              Open Billing Overrides Ops
+            </Link>
+          </Button>
+        </div>
 
         <Alert>
           <MaterialIcon name="info" size="sm" />

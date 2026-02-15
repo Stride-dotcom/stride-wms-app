@@ -393,6 +393,7 @@ export default function Billing() {
   const getSubscriptionStatusBadge = (status: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
       active: 'default',
+      comped: 'default',
       approved: 'default',
       paid: 'default',
       open: 'secondary',
@@ -426,11 +427,23 @@ export default function Billing() {
   };
 
   const isNewSubscriber = gate?.status === 'none';
-  const baseSubscriptionStatus = subscriptionSnapshot?.status || gate?.status || 'none';
+  const isCompedTenant = gate?.is_comped === true;
+  const baseSubscriptionStatus = isCompedTenant
+    ? 'comped'
+    : subscriptionSnapshot?.status || gate?.status || 'none';
   const smsActivationStatus = smsAddonActivation?.activation_status || 'not_activated';
   const senderProvisioningStatus = senderProfile?.provisioning_status || 'not_requested';
 
   const handleSubscriptionAction = async () => {
+    if (isCompedTenant) {
+      toast({
+        title: 'Comped billing override active',
+        description:
+          'Stripe checkout and portal actions are disabled while this tenant is marked as comped.',
+      });
+      return;
+    }
+
     setStartingSubscription(true);
     try {
       const functionName = isNewSubscriber
@@ -469,15 +482,15 @@ export default function Billing() {
           />
           <Button
             onClick={() => void handleSubscriptionAction()}
-            disabled={startingSubscription}
+            disabled={startingSubscription || isCompedTenant}
             className="gap-2"
           >
             {startingSubscription ? (
               <MaterialIcon name="progress_activity" size="sm" className="animate-spin" />
             ) : (
-              <MaterialIcon name="credit_card" size="sm" />
+              <MaterialIcon name={isCompedTenant ? "money_off" : "credit_card"} size="sm" />
             )}
-            {isNewSubscriber ? 'Start Subscription' : 'Manage Subscription'}
+            {isCompedTenant ? 'Comped Billing Override Active' : isNewSubscriber ? 'Start Subscription' : 'Manage Subscription'}
           </Button>
         </div>
 
@@ -518,6 +531,14 @@ export default function Billing() {
                     <p className="text-sm font-medium">{formatSummaryDate(gate?.grace_until)}</p>
                   </div>
                   <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Comped Override</p>
+                    {getSubscriptionStatusBadge(isCompedTenant ? 'comped' : 'none')}
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Comped Expires</p>
+                    <p className="text-sm font-medium">{formatSummaryDate(gate?.comp_expires_at)}</p>
+                  </div>
+                  <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">SMS Add-On</p>
                     {getSubscriptionStatusBadge(smsActivationStatus)}
                   </div>
@@ -556,6 +577,16 @@ export default function Billing() {
                     <MaterialIcon name="sms_failed" size="sm" />
                     <AlertDescription className="text-sm">
                       SMS remains disabled until toll-free sender verification is approved. Complete/request setup in Settings.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {isCompedTenant && (
+                  <Alert>
+                    <MaterialIcon name="money_off" size="sm" />
+                    <AlertDescription className="text-sm">
+                      Billing override is active for this tenant. Stripe subscription checkout and portal
+                      actions are currently disabled.
                     </AlertDescription>
                   </Alert>
                 )}

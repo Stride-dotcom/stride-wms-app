@@ -8,6 +8,8 @@ export interface SubscriptionGateState {
   is_in_grace: boolean;
   is_restricted: boolean;
   grace_until?: string;
+  is_comped?: boolean;
+  comp_expires_at?: string | null;
 }
 
 const DEFAULT_GATE: SubscriptionGateState = {
@@ -15,6 +17,7 @@ const DEFAULT_GATE: SubscriptionGateState = {
   is_active: true,
   is_in_grace: false,
   is_restricted: false,
+  is_comped: false,
 };
 
 /**
@@ -24,6 +27,7 @@ const DEFAULT_GATE: SubscriptionGateState = {
  */
 export function isSubscriptionAccessBlocked(gate?: SubscriptionGateState | null): boolean {
   if (!gate) return false;
+  if (gate.is_comped) return false;
   if (gate.status === "past_due") return true;
   return gate.is_restricted || gate.status === "canceled" || gate.status === "inactive";
 }

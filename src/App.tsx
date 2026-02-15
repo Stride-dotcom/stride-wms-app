@@ -77,6 +77,7 @@ import BotQA from "./pages/admin/BotQA";
 import StripeOps from "./pages/admin/StripeOps";
 import PricingOps from "./pages/admin/PricingOps";
 import SmsSenderOps from "./pages/admin/SmsSenderOps";
+import BillingOverridesOps from "./pages/admin/BillingOverridesOps";
 import QACenter from "./pages/QACenter";
 import DecisionLedger from "./pages/DecisionLedger";
 import Messages from "./pages/Messages";
@@ -167,6 +168,7 @@ const App = () => (
             <Route path="/admin/stripe-ops" element={<ProtectedRoute><RequireRole role={['admin_dev']}><StripeOps /></RequireRole></ProtectedRoute>} />
             <Route path="/admin/pricing-ops" element={<ProtectedRoute><RequireRole role={['admin_dev']}><PricingOps /></RequireRole></ProtectedRoute>} />
             <Route path="/admin/sms-sender-ops" element={<ProtectedRoute><RequireRole role={['admin_dev']}><SmsSenderOps /></RequireRole></ProtectedRoute>} />
+            <Route path="/admin/billing-overrides-ops" element={<ProtectedRoute><RequireRole role={['admin_dev']}><BillingOverridesOps /></RequireRole></ProtectedRoute>} />
             <Route path="/qa" element={<ProtectedRoute><QACenter /></ProtectedRoute>} />
             <Route path="/decision-ledger" element={<ProtectedRoute><RequireRole role="admin_dev"><DecisionLedger /></RequireRole></ProtectedRoute>} />
             <Route path="/repair-access" element={<RepairTechAccess />} />
