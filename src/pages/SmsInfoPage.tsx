@@ -1,5 +1,5 @@
-import { Link } from 'react-router-dom';
-import { ArrowLeft, MessageSquare } from 'lucide-react';
+import { Link, useSearchParams } from "react-router-dom";
+import { ArrowLeft, BellOff, BellRing, MessageSquare } from "lucide-react";
 import { Button } from '@/components/ui/button';
 
 const sections = [
@@ -61,6 +61,11 @@ const sections = [
 ];
 
 export default function SmsInfoPage() {
+  const [searchParams] = useSearchParams();
+  const tenantId = searchParams.get("t");
+  const withTenantQuery = (path: string): string =>
+    tenantId ? `${path}?t=${encodeURIComponent(tenantId)}` : path;
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
@@ -89,6 +94,36 @@ export default function SmsInfoPage() {
             Information about our text message notification program, including how to opt in,
             opt out, and your rights as a message recipient.
           </p>
+        </div>
+      </section>
+
+      <section className="pb-10 px-6">
+        <div className="max-w-3xl mx-auto grid gap-4 sm:grid-cols-2">
+          <div className="rounded-2xl border border-border/60 bg-card p-6">
+            <div className="flex items-center gap-2 mb-2">
+              <BellRing className="h-5 w-5 text-primary" />
+              <h2 className="font-semibold text-lg">Opt In to SMS</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Start receiving shipment, inventory, and account-related SMS updates.
+            </p>
+            <Button asChild className="w-full">
+              <Link to={withTenantQuery("/sms/opt-in")}>Go to Opt-In Form</Link>
+            </Button>
+          </div>
+
+          <div className="rounded-2xl border border-border/60 bg-card p-6">
+            <div className="flex items-center gap-2 mb-2">
+              <BellOff className="h-5 w-5 text-primary" />
+              <h2 className="font-semibold text-lg">Opt Out of SMS</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Stop receiving SMS updates for your phone number at any time.
+            </p>
+            <Button asChild variant="outline" className="w-full">
+              <Link to={withTenantQuery("/sms/opt-out")}>Go to Opt-Out Form</Link>
+            </Button>
+          </div>
         </div>
       </section>
 
@@ -121,6 +156,14 @@ export default function SmsInfoPage() {
               <div>
                 <span className="font-medium">Message rates:</span>
                 <p className="text-muted-foreground">Standard rates may apply</p>
+              </div>
+              <div>
+                <span className="font-medium">Web opt-out form:</span>
+                <p className="text-muted-foreground">
+                  <Link to={withTenantQuery("/sms/opt-out")} className="text-primary underline">
+                    /sms/opt-out
+                  </Link>
+                </p>
               </div>
             </div>
           </div>

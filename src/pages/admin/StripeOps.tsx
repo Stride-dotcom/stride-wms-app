@@ -71,6 +71,12 @@ export default function StripeOps() {
       <div className="space-y-6">
         <div className="flex flex-wrap justify-end gap-2">
           <Button variant="outline" size="sm" asChild>
+            <Link to="/admin/billing-overrides-ops">
+              <MaterialIcon name="money_off" size="sm" className="mr-2" />
+              Open Billing Overrides Ops
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
             <Link to="/admin/sms-sender-ops">
               <MaterialIcon name="sms" size="sm" className="mr-2" />
               Open SMS Sender Ops

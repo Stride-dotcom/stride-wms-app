@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test --config=qa/e2e/playwright.config.ts",
     "test:e2e:list": "playwright test --config=qa/e2e/playwright.config.ts --list",
-    "test:e2e:install": "playwright install --with-deps chromium"
+    "test:e2e:install": "playwright install --with-deps chromium",
+    "ledger:apply-packets:dry-run": "node scripts/ledger/apply-packets.mjs --dry-run"
   },
   "dependencies": {
     "@capacitor-mlkit/document-scanner": "^8.0.0",

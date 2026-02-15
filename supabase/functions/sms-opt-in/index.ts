@@ -5,9 +5,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
  * sms-opt-in
  *
  * Public edge function (no auth required) for the SMS opt-in consent page.
- * Two actions:
+ * Actions:
  *   1. get_tenant_info - Returns public tenant branding for the opt-in form
  *   2. opt_in - Records consent for a phone number
+ *   3. opt_out - Records unsubscribe for a phone number
  */
 
 const corsHeaders = {
@@ -127,7 +128,7 @@ const handler = async (req: Request): Promise<Response> => {
       const { data: settings } = await supabase
         .from("tenant_company_settings")
         .select(
-          "company_name, company_email, company_phone, logo_url, sms_opt_in_message, sms_help_message, sms_privacy_policy_url, sms_terms_conditions_url"
+          "company_name, company_email, company_phone, logo_url, sms_opt_in_message, sms_help_message, sms_stop_message, sms_privacy_policy_url, sms_terms_conditions_url"
         )
         .eq("tenant_id", resolvedTenantId)
         .maybeSingle();
@@ -141,6 +142,7 @@ const handler = async (req: Request): Promise<Response> => {
           logo_url: settings?.logo_url || null,
           sms_opt_in_message: settings?.sms_opt_in_message || null,
           sms_help_message: settings?.sms_help_message || null,
+          sms_stop_message: settings?.sms_stop_message || null,
           sms_privacy_policy_url: settings?.sms_privacy_policy_url || null,
           sms_terms_conditions_url: settings?.sms_terms_conditions_url || null,
         },
@@ -248,6 +250,108 @@ const handler = async (req: Request): Promise<Response> => {
       return jsonResponse({
         success: true,
         message: "Successfully subscribed to SMS notifications.",
+      });
+    }
+
+    if (action === "opt_out") {
+      const { phone_number, contact_name } = body;
+
+      if (!phone_number) {
+        return jsonResponse({ error: "Phone number is required" }, 400);
+      }
+
+      const normalized = normalizePhone(phone_number);
+      if (!/^\+\d{7,15}$/.test(normalized)) {
+        return jsonResponse(
+          { error: "Invalid phone number format. Please use a valid phone number." },
+          400
+        );
+      }
+
+      const now = new Date().toISOString();
+
+      const { data: existing } = await supabase
+        .from("sms_consent")
+        .select("id, status")
+        .eq("tenant_id", resolvedTenantId)
+        .eq("phone_number", normalized)
+        .maybeSingle();
+
+      if (existing) {
+        if (existing.status === "opted_out") {
+          return jsonResponse({
+            success: true,
+            message: "This number is already unsubscribed from SMS notifications.",
+            already_unsubscribed: true,
+          });
+        }
+
+        await supabase
+          .from("sms_consent")
+          .update({
+            status: "opted_out",
+            consent_method: "web_form",
+            opted_out_at: now,
+            last_keyword: "STOP",
+            contact_name: contact_name || undefined,
+          })
+          .eq("id", existing.id);
+
+        await supabase.from("sms_consent_log").insert({
+          tenant_id: resolvedTenantId,
+          consent_id: existing.id,
+          phone_number: normalized,
+          action: "opt_out",
+          method: "web_form",
+          keyword: "STOP",
+          previous_status: existing.status,
+          new_status: "opted_out",
+        });
+      } else {
+        const { data: newRecord, error: insertError } = await supabase
+          .from("sms_consent")
+          .insert({
+            tenant_id: resolvedTenantId,
+            phone_number: normalized,
+            contact_name: contact_name || null,
+            status: "opted_out",
+            consent_method: "web_form",
+            opted_out_at: now,
+            last_keyword: "STOP",
+          })
+          .select("id")
+          .single();
+
+        if (insertError) {
+          if (
+            insertError.message?.includes("duplicate key") ||
+            insertError.message?.includes("unique constraint")
+          ) {
+            return jsonResponse({
+              success: true,
+              message: "This number is already unsubscribed.",
+              already_unsubscribed: true,
+            });
+          }
+          throw insertError;
+        }
+
+        if (newRecord) {
+          await supabase.from("sms_consent_log").insert({
+            tenant_id: resolvedTenantId,
+            consent_id: newRecord.id,
+            phone_number: normalized,
+            action: "opt_out",
+            method: "web_form",
+            keyword: "STOP",
+            new_status: "opted_out",
+          });
+        }
+      }
+
+      return jsonResponse({
+        success: true,
+        message: "Successfully unsubscribed from SMS notifications.",
       });
     }
 

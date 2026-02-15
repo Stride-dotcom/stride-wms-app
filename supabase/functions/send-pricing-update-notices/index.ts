@@ -249,7 +249,30 @@ serve(async (req: Request): Promise<Response> => {
       new Set((Array.isArray(subscriptionRows) ? subscriptionRows : []).map((row) => row.tenant_id))
     ).filter(Boolean);
 
-    if (tenantIds.length === 0) {
+    const { data: overrideRows, error: overrideError } =
+      tenantIds.length > 0
+        ? await (serviceClient as any)
+            .from("tenant_billing_overrides")
+            .select("tenant_id, is_comped, expires_at")
+            .in("tenant_id", tenantIds)
+        : { data: [], error: null };
+    if (overrideError) {
+      return jsonResponse({ ok: false, error: overrideError.message }, 500);
+    }
+
+    const compedTenantIds = new Set<string>();
+    for (const row of Array.isArray(overrideRows) ? overrideRows : []) {
+      const isComped = row?.is_comped === true;
+      const expiresAt = row?.expires_at ? new Date(String(row.expires_at)).getTime() : null;
+      const isExpired = expiresAt !== null && Number.isFinite(expiresAt) && expiresAt <= Date.now();
+      if (isComped && !isExpired && row?.tenant_id) {
+        compedTenantIds.add(String(row.tenant_id));
+      }
+    }
+
+    const billableTenantIds = tenantIds.filter((tenantId) => !compedTenantIds.has(tenantId));
+
+    if (billableTenantIds.length === 0) {
       await (serviceClient as any).from("saas_pricing_notice_dispatches").insert({
         pricing_version_id: pricing.id,
         notice_type: body.notice_type,
@@ -257,6 +280,7 @@ serve(async (req: Request): Promise<Response> => {
         sent_by: userId,
         metadata: {
           targeted_count: 0,
+          excluded_comped_count: compedTenantIds.size,
           sent_count: 0,
           failed_count: 0,
         },
@@ -273,7 +297,7 @@ serve(async (req: Request): Promise<Response> => {
     const { data: companyRows, error: companyError } = await (serviceClient as any)
       .from("tenant_company_settings")
       .select("tenant_id, company_name, company_email")
-      .in("tenant_id", tenantIds);
+      .in("tenant_id", billableTenantIds);
 
     if (companyError) {
       return jsonResponse({ ok: false, error: companyError.message }, 500);
@@ -320,6 +344,7 @@ serve(async (req: Request): Promise<Response> => {
       sent_by: userId,
       metadata: {
         targeted_count: recipients.length,
+        excluded_comped_count: compedTenantIds.size,
         sent_count: sentCount,
         failed_count: failedCount,
         failures: failures.slice(0, 25),

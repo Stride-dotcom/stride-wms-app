@@ -56,6 +56,7 @@ import QuoteAcceptance from "./pages/QuoteAcceptance";
 import ClientQuoteReview from "./pages/ClientQuoteReview";
 import ClientActivate from "./pages/ClientActivate";
 import SmsOptIn from "./pages/SmsOptIn";
+import SmsOptOut from "./pages/SmsOptOut";
 import LandingPage from "./pages/LandingPage";
 import SmsInfoPage from "./pages/SmsInfoPage";
 import ClaimAcceptance from "./pages/ClaimAcceptance";
@@ -77,6 +78,7 @@ import BotQA from "./pages/admin/BotQA";
 import StripeOps from "./pages/admin/StripeOps";
 import PricingOps from "./pages/admin/PricingOps";
 import SmsSenderOps from "./pages/admin/SmsSenderOps";
+import BillingOverridesOps from "./pages/admin/BillingOverridesOps";
 import QACenter from "./pages/QACenter";
 import DecisionLedger from "./pages/DecisionLedger";
 import Messages from "./pages/Messages";
@@ -167,6 +169,7 @@ const App = () => (
             <Route path="/admin/stripe-ops" element={<ProtectedRoute><RequireRole role={['admin_dev']}><StripeOps /></RequireRole></ProtectedRoute>} />
             <Route path="/admin/pricing-ops" element={<ProtectedRoute><RequireRole role={['admin_dev']}><PricingOps /></RequireRole></ProtectedRoute>} />
             <Route path="/admin/sms-sender-ops" element={<ProtectedRoute><RequireRole role={['admin_dev']}><SmsSenderOps /></RequireRole></ProtectedRoute>} />
+            <Route path="/admin/billing-overrides-ops" element={<ProtectedRoute><RequireRole role={['admin_dev']}><BillingOverridesOps /></RequireRole></ProtectedRoute>} />
             <Route path="/qa" element={<ProtectedRoute><QACenter /></ProtectedRoute>} />
             <Route path="/decision-ledger" element={<ProtectedRoute><RequireRole role="admin_dev"><DecisionLedger /></RequireRole></ProtectedRoute>} />
             <Route path="/repair-access" element={<RepairTechAccess />} />
@@ -177,8 +180,12 @@ const App = () => (
             <Route path="/activate" element={<ClientActivate />} />
             <Route path="/sms-opt-in" element={<SmsOptIn />} />
             <Route path="/sms-opt-in/:tenantId" element={<SmsOptIn />} />
+            <Route path="/sms-opt-out" element={<SmsOptOut />} />
+            <Route path="/sms-opt-out/:tenantId" element={<SmsOptOut />} />
             <Route path="/sms/opt-in" element={<SmsOptIn />} />
             <Route path="/sms/opt-in/:tenantId" element={<SmsOptIn />} />
+            <Route path="/sms/opt-out" element={<SmsOptOut />} />
+            <Route path="/sms/opt-out/:tenantId" element={<SmsOptOut />} />
             <Route path="/client/login" element={<ClientLogin />} />
             <Route path="/client" element={<ProtectedRoute><RequireRole role="client_user"><ClientDashboard /></RequireRole></ProtectedRoute>} />
             <Route path="/client/items" element={<ProtectedRoute><RequireRole role="client_user"><ClientItems /></RequireRole></ProtectedRoute>} />
