@@ -4,6 +4,7 @@
 
 - Source type: Chat transcript (this session)
 - Subject: Locations page repair, location types/capacity/import-export, and container workflow/scanning
+- Chat ID: `bc-93553291-7523-4d63-93a4-b47dc68b42ad`
 - Compiled by: builder
 - Compiled on: 2026-02-15
 - Purpose: Normalize explicit Q&A decisions for ledger import

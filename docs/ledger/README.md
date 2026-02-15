@@ -1,41 +1,49 @@
-# Ledger Packet Workflow (Conflict-Safe)
+# Locked Decision Ledger Architecture (Merge-Conflict Safe)
 
-This directory is the conflict-safe replacement workflow for decision updates.
+This folder introduces a packet-based workflow so multiple chats can log decisions without editing the same shared lines in the master ledger files.
 
-## Canonical files
+## No-data-loss guarantee
 
-- `docs/ledger/MASTER_LEDGER.md` — canonical merged ledger (read-only during chat execution)
-- `docs/ledger/sources/*` — normalized source artifacts for each chat/import
-- `docs/ledger/packets/pending/*` — append-only pending ledger packets
-- `docs/ledger/packets/applied/*` — packets after application
-
-## Hard rule
-
-For this workflow, do **not** directly edit:
+All current decisions remain in canonical master files:
 
 - `docs/LOCKED_DECISION_LEDGER.md`
 - `docs/LOCKED_DECISION_IMPLEMENTATION_LOG.md`
 
-Use source artifacts + pending packets only.
+This migration changes **how new updates are staged**, not historical content.
 
-## Per-chat update process
+## Folder map
 
-1. Create/append source artifact:
-   - `docs/ledger/sources/LOCKED_DECISION_SOURCE_<TOPIC_SLUG>_<YYYY-MM-DD>_chat-<CHAT_ID>.md`
-2. Create pending packet:
-   - `docs/ledger/packets/pending/LDP-<YYYY-MM-DD>-<TOPIC_SLUG>-<CHAT_ID>.md`
-3. Packet must include sections:
-   - `## Decision Index Rows`
-   - `## Detailed Decision Entries`
-   - `## Implementation Log Rows`
-4. Validate parsing:
-   - `npm run ledger:apply-packets:dry-run`
+- `docs/ledger/MASTER_LEDGER.md`  
+  Operating model and guardrails.
+- `docs/ledger/sources/`  
+  Per-chat/per-source extraction artifacts.
+- `docs/ledger/packets/pending/`  
+  New decision/progress packets from active chats.
+- `docs/ledger/packets/applied/`  
+  Archived packets already applied to master.
+- `docs/ledger/packets/PACKET_TEMPLATE.md`  
+  Required packet structure.
 
-## Dry-run validator behavior
+## Commands
 
-The dry-run command validates pending packet structure and reports extracted:
+Apply pending packets into canonical master files:
 
-- decision IDs (`DL-...`)
-- event IDs (`DLE-...`)
+```bash
+npm run ledger:apply-packets
+```
 
-It does not mutate the master ledger.
+Dry-run packet processing:
+
+```bash
+npm run ledger:apply-packets:dry-run
+```
+
+## Conflict prevention rule
+
+Normal chat branches must **not** edit the master files directly.  
+They should only add files under:
+
+- `docs/ledger/sources/`
+- `docs/ledger/packets/pending/`
+
+Integration applies packets to master in one controlled pass.

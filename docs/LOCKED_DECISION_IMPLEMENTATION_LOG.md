@@ -108,6 +108,11 @@ Last updated: 2026-02-15
 | DLE-2026-02-15-021 | 2026-02-15 | DL-2026-02-14-084 | completed | Updated `supabase/functions/sms-opt-in/index.ts` | builder | Extended public SMS edge function with `opt_out` action to persist unsubscribe status changes and audit log entries in `sms_consent` and `sms_consent_log`. |
 | DLE-2026-02-15-022 | 2026-02-15 | DL-2026-02-14-084 | completed | Updated `src/pages/SmsInfoPage.tsx` | builder | Converted `/sms` into a customer-facing preference hub with clear web opt-in and opt-out fork entry points. |
 
+| DLE-2026-02-15-014 | 2026-02-15 | DL-2026-02-15-017 | planned | Added packet workflow docs and apply script | builder | Captured accepted packet-based workflow to avoid shared-file merge conflicts. |
+| DLE-2026-02-15-015 | 2026-02-15 | DL-2026-02-15-018 | planned | Added master control doc `docs/ledger/MASTER_LEDGER.md` | builder | Confirmed single canonical master model with per-chat sources. |
+| DLE-2026-02-15-016 | 2026-02-15 | DL-2026-02-15-019 | planned | Updated prompt templates and source naming docs | builder | Standardized topic+chat-id naming for source artifacts. |
+| DLE-2026-02-15-017 | 2026-02-15 | DL-2026-02-15-020 | planned | Migration artifacts added without altering existing ledger decisions | builder | Preserved current decision history while implementing conflict-safe workflow. |
+
 ## Event template (copy/paste)
 
 ```md
