@@ -97,6 +97,13 @@ function parseRowFirstCellId(row) {
   return match ? match[1].trim() : null;
 }
 
+function filterRowsByFirstCellIdPrefix(rows, prefix) {
+  return rows.filter((row) => {
+    const id = parseRowFirstCellId(row);
+    return Boolean(id && id.startsWith(prefix));
+  });
+}
+
 function splitDecisionEntries(sectionText) {
   const lines = sectionText.split("\n");
   const entries = [];
@@ -228,9 +235,18 @@ async function main() {
     const detailSection = extractSection(packetText, "Detailed Decision Entries");
     const logSection = extractSection(packetText, "Implementation Log Rows");
 
-    const indexRows = dedupeIndexRows(extractTableRows(indexSection), ledgerText);
-    const detailEntries = dedupeDecisionEntries(splitDecisionEntries(detailSection), ledgerText);
-    const logRows = dedupeLogRows(extractTableRows(logSection), logText);
+    const rawIndexRows = filterRowsByFirstCellIdPrefix(extractTableRows(indexSection), "DL-");
+    const rawDetailEntries = splitDecisionEntries(detailSection).filter((entry) =>
+      Boolean(parseDecisionIdFromEntry(entry)),
+    );
+    const rawLogRows = filterRowsByFirstCellIdPrefix(extractTableRows(logSection), "DLE-");
+
+    const hasParseableContent =
+      rawIndexRows.length > 0 || rawDetailEntries.length > 0 || rawLogRows.length > 0;
+
+    const indexRows = dedupeIndexRows(rawIndexRows, ledgerText);
+    const detailEntries = dedupeDecisionEntries(rawDetailEntries, ledgerText);
+    const logRows = dedupeLogRows(rawLogRows, logText);
 
     if (indexRows.length > 0) {
       ledgerText = insertBeforeHeading(ledgerText, "## Detailed imports", `${indexRows.join("\n")}\n`);
@@ -248,9 +264,13 @@ async function main() {
       changedLog = true;
     }
 
-    if (args.moveApplied) {
+    if (args.moveApplied && hasParseableContent) {
       const targetPath = path.join(args.appliedDir, path.basename(packetPath));
       moveOps.push({ from: packetPath, to: targetPath });
+    } else if (args.moveApplied && !hasParseableContent) {
+      console.warn(
+        `Packet not moved (no parseable DL-/DLE- content found): ${packetPath} (index rows: ${rawIndexRows.length}, entries: ${rawDetailEntries.length}, log rows: ${rawLogRows.length})`,
+      );
     }
 
     console.log(
