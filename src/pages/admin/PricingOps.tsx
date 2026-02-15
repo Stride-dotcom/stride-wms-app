@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
+import { Link } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -149,6 +150,15 @@ export default function PricingOps() {
           accentText="Ops"
           description="Admin-dev console for global app/SMS pricing schedules and subscriber notice dispatch."
         />
+
+        <div className="flex justify-end">
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/admin/sms-sender-ops">
+              <MaterialIcon name="sms" size="sm" className="mr-2" />
+              Open SMS Sender Ops
+            </Link>
+          </Button>
+        </div>
 
         <Alert>
           <MaterialIcon name="info" size="sm" />

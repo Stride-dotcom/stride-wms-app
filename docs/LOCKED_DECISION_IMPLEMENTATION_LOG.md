@@ -73,6 +73,8 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-051 | 2026-02-14 | DL-2026-02-14-078,DL-2026-02-14-082 | completed | Added `supabase/functions/send-pricing-update-notices/index.ts` | builder | Added admin-dev bulk email notice dispatch to subscriber `company_email` recipients with per-send audit logging. |
 | DLE-2026-02-14-052 | 2026-02-14 | DL-2026-02-14-082 | completed | Added `src/hooks/useSaasPricingAdmin.ts`, `src/pages/admin/PricingOps.tsx`; updated `src/App.tsx`, `src/pages/admin/StripeOps.tsx` | builder | Implemented admin-dev pricing console for app monthly + SMS monthly + per-segment rates, scheduling, and one-click upcoming/effective-today notice sends. |
 | DLE-2026-02-14-053 | 2026-02-14 | DL-2026-02-14-083,DL-2026-02-14-081 | completed | Updated `supabase/functions/stripe-webhook/index.ts` and `src/pages/Billing.tsx` | builder | Added Stripe invoice snapshot upserts and surfaced tenant SaaS subscription invoices in Billing with hosted/PDF links. |
+| DLE-2026-02-14-054 | 2026-02-14 | DL-2026-02-14-073,DL-2026-02-14-074,DL-2026-02-14-075,DL-2026-02-14-076 | completed | Added `supabase/migrations/20260215060000_admin_sms_sender_ops_views.sql` | builder | Added admin-dev sender ops listing/history RPCs and admin_dev read policies for sender profile tables. |
+| DLE-2026-02-14-055 | 2026-02-14 | DL-2026-02-14-073,DL-2026-02-14-074,DL-2026-02-14-075,DL-2026-02-14-076 | completed | Added `src/hooks/useSmsSenderOpsAdmin.ts`, `src/pages/admin/SmsSenderOps.tsx`; updated `src/App.tsx`, `src/pages/admin/StripeOps.tsx`, `src/pages/admin/PricingOps.tsx` | builder | Implemented admin-dev SMS Sender Ops UI with queue filtering, status transitions, number assignment fields, and tenant event history viewer. |
 
 ## Event template (copy/paste)
 
