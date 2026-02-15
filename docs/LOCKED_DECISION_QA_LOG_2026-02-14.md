@@ -30,4 +30,5 @@ Purpose: append-only trace of substantive implementation Q&A decisions from the 
 | QA-2026-02-14-022 | 2026-02-14 | Where should subscription invoices appear in app? | Tenant Account Settings → Billing page. | DL-2026-02-14-076 |
 | QA-2026-02-14-023 | 2026-02-14 | Need internal/self-use without paying? | Yes; comped/waiver capability required (scope unresolved). | DL-2026-02-14-080 (draft) |
 | QA-2026-02-14-024 | 2026-02-14 | Should every Q&A be logged for execution tracking? | Yes. | DL-2026-02-14-064 |
+| QA-2026-02-14-025 | 2026-02-14 | Comped billing override scope: single internal tenant or multiple? | Multiple tenants. | DL-2026-02-14-080 |
 

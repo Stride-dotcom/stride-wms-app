@@ -49,6 +49,7 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-027 | 2026-02-14 | DL-2026-02-14-064 | completed | Added `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` and linked source in ledger | builder | Established append-only Q&A traceability for SMS/Twilio/billing planning decisions. |
 | DLE-2026-02-14-028 | 2026-02-14 | DL-2026-02-14-065..DL-2026-02-14-079 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` with accepted platform/SMS/billing decisions from Q&A | builder | Build-out scope is now explicitly recorded for automated provisioning, Stripe billing, pricing console, and tenant billing UX. |
 | DLE-2026-02-14-029 | 2026-02-14 | DL-2026-02-14-080,DL-2026-02-14-081 | blocked | Q&A indicates unresolved policy scope (comp override breadth and first-month proration rule) | builder | Keep these decisions in draft until owner confirms final policy values. |
+| DLE-2026-02-14-030 | 2026-02-14 | DL-2026-02-14-080 | planned | Q&A confirmation: "Multi" (`docs/LOCKED_DECISION_QA_LOG_2026-02-14.md`) | builder | Resolved comp override scope to multi-tenant and promoted decision state from draft to accepted. |
 
 ## Event template (copy/paste)
 

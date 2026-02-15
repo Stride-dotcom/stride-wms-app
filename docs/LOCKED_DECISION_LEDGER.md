@@ -109,7 +109,7 @@ It captures high-impact implementation decisions, their status, and supersession
 | DL-2026-02-14-077 | Public SMS opt-in page is tenant-branded and resolved by subdomain | SMS Opt-In UX | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
 | DL-2026-02-14-078 | Tenant editing of SMS compliance content is locked for simplicity | SMS Governance | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
 | DL-2026-02-14-079 | Tenant-facing Twilio setup sections are removed from standard organization settings | SMS Governance | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
-| DL-2026-02-14-080 | Internal comped billing override is required for owner/internal use | Billing Policy | draft | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
+| DL-2026-02-14-080 | Internal comped billing override supports multiple internal tenants | Billing Policy | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
 | DL-2026-02-14-081 | First-month SMS monthly fee proration policy remains open pending pricing research | Billing Policy | draft | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
 
 ## Detailed imports
@@ -690,9 +690,9 @@ Tenant self-configuration conflicts with centralized managed-SMS operating model
 - Update settings UI visibility/permission model for Twilio sections.
 - Route tenant users to billing/activation status pages instead of Twilio setup forms.
 
-### DL-2026-02-14-080: Internal comped billing override is required for owner/internal use
+### DL-2026-02-14-080: Internal comped billing override supports multiple internal tenants
 - Domain: Billing Policy
-- State: draft
+- State: accepted
 - Source: `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md`
 - Supersedes: -
 - Superseded by: -
@@ -700,7 +700,7 @@ Tenant self-configuration conflicts with centralized managed-SMS operating model
 - Locked at: -
 
 #### Decision
-Provide a comped billing override capability so owner/internal tenants can use the platform without being charged.
+Provide a comped billing override capability that supports multiple internal tenants so owner/internal accounts can use the platform without charges.
 
 #### Why
 Internal self-use/testing is required without circular billing.
@@ -708,7 +708,7 @@ Internal self-use/testing is required without circular billing.
 #### Implementation impact
 - Add comp/waiver flags and exclusion logic in billing pipeline.
 - Track waiver scope and audit trail.
-- Finalize whether override scope is single-tenant or multi-tenant.
+- Apply override eligibility at tenant level for multiple internal tenants.
 
 ### DL-2026-02-14-081: First-month SMS monthly fee proration policy remains open pending pricing research
 - Domain: Billing Policy
