@@ -5,6 +5,49 @@ import { defineConfig, devices } from '@playwright/test';
  *
  * Runs visual tests across 3 viewports: desktop, tablet, mobile
  */
+const ALL_VIEWPORTS = ['desktop', 'tablet', 'mobile'] as const;
+type ViewportName = typeof ALL_VIEWPORTS[number];
+
+function parseRequestedViewports(): ViewportName[] {
+  const raw = process.env.VIEWPORTS;
+  if (!raw) return [...ALL_VIEWPORTS];
+  const valid = raw
+    .split(',')
+    .map((v) => v.trim().toLowerCase())
+    .filter((v): v is ViewportName => (ALL_VIEWPORTS as readonly string[]).includes(v));
+  return valid.length > 0 ? valid : ['desktop'];
+}
+
+const requestedViewports = parseRequestedViewports();
+
+const viewportProjects = {
+  desktop: {
+    name: 'desktop',
+    use: {
+      ...devices['Desktop Chrome'],
+      viewport: { width: 1440, height: 900 },
+    },
+  },
+  tablet: {
+    name: 'tablet',
+    use: {
+      ...devices['Desktop Chrome'],
+      viewport: { width: 834, height: 1194 },
+      isMobile: true,
+      hasTouch: true,
+    },
+  },
+  mobile: {
+    name: 'mobile',
+    use: {
+      ...devices['Desktop Chrome'],
+      viewport: { width: 390, height: 844 },
+      isMobile: true,
+      hasTouch: true,
+    },
+  },
+} as const;
+
 export default defineConfig({
   testDir: '.',
   testMatch: '**/*.spec.ts',
@@ -27,34 +70,5 @@ export default defineConfig({
     video: 'retain-on-failure',
   },
 
-  projects: [
-    // Desktop viewport (1440x900)
-    {
-      name: 'desktop',
-      use: {
-        ...devices['Desktop Chrome'],
-        viewport: { width: 1440, height: 900 },
-      },
-    },
-    // Tablet viewport (834x1194 - iPad Pro dimensions, Chromium engine)
-    {
-      name: 'tablet',
-      use: {
-        ...devices['Desktop Chrome'],
-        viewport: { width: 834, height: 1194 },
-        isMobile: true,
-        hasTouch: true,
-      },
-    },
-    // Mobile viewport (390x844 - iPhone 14 Pro dimensions, Chromium engine)
-    {
-      name: 'mobile',
-      use: {
-        ...devices['Desktop Chrome'],
-        viewport: { width: 390, height: 844 },
-        isMobile: true,
-        hasTouch: true,
-      },
-    },
-  ],
+  projects: requestedViewports.map((viewport) => viewportProjects[viewport]),
 });

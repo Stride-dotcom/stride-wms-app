@@ -27,8 +27,20 @@ const MIN_SCROLL_BUFFER_PX = 80;
 const MAX_SCROLL_BUFFER_PX = 120;
 const IDEAL_SCROLL_BUFFER_PX = 100;
 
-const VIEWPORTS = ['desktop', 'tablet', 'mobile'] as const;
-type Viewport = typeof VIEWPORTS[number];
+const ALL_VIEWPORTS = ['desktop', 'tablet', 'mobile'] as const;
+type Viewport = typeof ALL_VIEWPORTS[number];
+
+function parseRequestedViewports(): Viewport[] {
+  const raw = process.env.VIEWPORTS;
+  if (!raw) return [...ALL_VIEWPORTS];
+  const valid = raw
+    .split(',')
+    .map((v) => v.trim().toLowerCase())
+    .filter((v): v is Viewport => (ALL_VIEWPORTS as readonly string[]).includes(v));
+  return valid.length > 0 ? valid : ['desktop'];
+}
+
+const VIEWPORTS = parseRequestedViewports();
 
 // ============================================================
 // TYPES
@@ -129,6 +141,7 @@ let supabase: SupabaseClient;
 let runId: string;
 let adminContext: BrowserContext;
 let clientContext: BrowserContext;
+let executedByUserId: string | null = null;
 const testResults: TestResult[] = [];
 const missingTestIds: Map<string, { route: string; count: number }> = new Map();
 const skippedSteps: { route: string; step: string; reason: string }[] = [];
@@ -147,8 +160,48 @@ function generateRunId(): string {
   return randomUUID();
 }
 
+function resolveProjectViewport(projectName: string): Viewport {
+  return (ALL_VIEWPORTS as readonly string[]).includes(projectName) ? (projectName as Viewport) : 'desktop';
+}
+
 async function createSupabaseClient(): Promise<SupabaseClient> {
   return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+}
+
+async function resolveExecutedByUserId(): Promise<string | null> {
+  if (executedByUserId) return executedByUserId;
+  if (!QA_TENANT_ID || !QA_ADMIN_EMAIL || !supabase) return null;
+
+  const { data, error } = await supabase
+    .from('users')
+    .select('id')
+    .eq('tenant_id', QA_TENANT_ID)
+    .eq('email', QA_ADMIN_EMAIL)
+    .is('deleted_at', null)
+    .limit(1)
+    .maybeSingle();
+
+  if (!error && data?.id) {
+    executedByUserId = data.id;
+    return executedByUserId;
+  }
+
+  const { data: fallback, error: fallbackError } = await supabase
+    .from('users')
+    .select('id')
+    .eq('tenant_id', QA_TENANT_ID)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (fallbackError) {
+    console.error('Error resolving executed_by user:', fallbackError);
+    return null;
+  }
+
+  executedByUserId = fallback?.id ?? null;
+  return executedByUserId;
 }
 
 async function loginUser(page: Page, email: string, password: string, isClient: boolean = false): Promise<boolean> {
@@ -1145,8 +1198,18 @@ async function saveResultsToSupabase(results: TestResult[], runId: string, cover
     console.log('Supabase not configured, skipping database save');
     return;
   }
+  if (!QA_TENANT_ID) {
+    console.log('QA_TENANT_ID is not configured, skipping database save');
+    return;
+  }
 
   try {
+    const executedBy = await resolveExecutedByUserId();
+    if (!executedBy) {
+      console.log('Could not resolve executed_by user, skipping database save');
+      return;
+    }
+
     const p0Failures = results.filter(r => r.priority === 'P0' && r.status === 'fail');
     const runStatus = p0Failures.length > 0 ? 'failed' : results.some(r => r.status === 'fail') ? 'completed' : 'completed';
 
@@ -1155,6 +1218,7 @@ async function saveResultsToSupabase(results: TestResult[], runId: string, cover
       .insert({
         id: runId,
         tenant_id: QA_TENANT_ID,
+        executed_by: executedBy,
         status: runStatus,
         suites_requested: ['ui_visual_qa'],
         mode: 'create_cleanup',
@@ -1281,29 +1345,28 @@ test.describe('UI Visual QA', () => {
     await clientContext?.close();
   });
 
-  // Generate tests for each tour and viewport
+  // Generate tests for each tour; viewport is derived from Playwright project
   for (const tour of pageTours) {
-    for (const viewport of VIEWPORTS) {
-      test(`[${tour.priority}] ${tour.name} - ${viewport}`, async () => {
-        const context = tour.roleContext === 'client' ? clientContext : adminContext;
-        const page = await context.newPage();
+    test(`[${tour.priority}] ${tour.name}`, async ({}, testInfo) => {
+      const viewport = resolveProjectViewport(testInfo.project.name);
+      const context = tour.roleContext === 'client' ? clientContext : adminContext;
+      const page = await context.newPage();
 
-        try {
-          const result = await testRoute(page, tour.route, viewport, tour);
-          testResults.push(result);
+      try {
+        const result = await testRoute(page, tour.route, viewport, tour);
+        testResults.push(result);
 
-          // For P0 failures, fail the test hard
-          if (result.status === 'fail' && shouldFailRun(tour.priority)) {
-            expect(result.error_message).toBeUndefined();
-          } else if (result.status === 'fail') {
-            // P1/P2 failures are soft
-            expect.soft(result.error_message).toBeUndefined();
-          }
-        } finally {
-          await page.close();
+        // For P0 failures, fail the test hard
+        if (result.status === 'fail' && shouldFailRun(tour.priority)) {
+          expect(result.error_message).toBeUndefined();
+        } else if (result.status === 'fail') {
+          // P1/P2 failures are soft
+          expect.soft(result.error_message).toBeUndefined();
         }
-      });
-    }
+      } finally {
+        await page.close();
+      }
+    });
   }
 
   // Test routes without tours (screenshot only)
@@ -1311,22 +1374,21 @@ test.describe('UI Visual QA', () => {
   const routesWithoutTours = getAllRoutes().filter(r => !routesWithTours.has(r));
 
   for (const route of routesWithoutTours.slice(0, 10)) {
-    for (const viewport of VIEWPORTS) {
-      test(`[P2] Route-only: ${route} - ${viewport}`, async () => {
-        const page = await adminContext.newPage();
+    test(`[P2] Route-only: ${route}`, async ({}, testInfo) => {
+      const viewport = resolveProjectViewport(testInfo.project.name);
+      const page = await adminContext.newPage();
 
-        try {
-          const result = await testRoute(page, route, viewport);
-          testResults.push(result);
+      try {
+        const result = await testRoute(page, route, viewport);
+        testResults.push(result);
 
-          if (result.status === 'fail') {
-            expect.soft(result.error_message).toBeUndefined();
-          }
-        } finally {
-          await page.close();
+        if (result.status === 'fail') {
+          expect.soft(result.error_message).toBeUndefined();
         }
-      });
-    }
+      } finally {
+        await page.close();
+      }
+    });
   }
 });
 
@@ -1345,6 +1407,7 @@ test.describe('UI Visual QA', () => {
 test.describe('Deep E2E QA', () => {
   // Only run when DEEP_MODE is enabled
   test.skip(!DEEP_MODE, 'Deep E2E tests are disabled. Set QA_DEEP_MODE=true to enable.');
+  test.skip(({ }, testInfo) => resolveProjectViewport(testInfo.project.name) !== 'desktop', 'Deep E2E tests run only on desktop project.');
 
   // Deep tests must run sequentially (they depend on each other)
   test.describe.configure({ mode: 'serial' });

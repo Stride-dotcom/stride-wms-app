@@ -38,6 +38,7 @@ import { PreferencesContent } from './preferences/PreferencesContent';
 import { LegalLinksSection } from './preferences/LegalLinksSection';
 import { EmailDomainSection } from './preferences/EmailDomainSection';
 import { TwilioSmsCard } from './TwilioSmsCard';
+import { SmsAddonActivationCard } from './SmsAddonActivationCard';
 import { SmsConsentPanel } from './SmsConsentPanel';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -488,6 +489,9 @@ export function OrganizationSettingsTab() {
                 tenantId={profile?.tenant_id || ''}
                 onUpdate={updateSettings}
               />
+
+              {/* SMS Add-On Activation */}
+              <SmsAddonActivationCard settings={tenantSettings} />
 
               {/* SMS Consent Tracking */}
               <SmsConsentPanel />

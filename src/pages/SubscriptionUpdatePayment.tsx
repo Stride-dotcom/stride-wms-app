@@ -187,7 +187,7 @@ export default function SubscriptionUpdatePayment() {
 
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => void launchStripePortal()} disabled={isLaunchingPortal}>
-              Update payment in Stripe
+              Manage Subscription
             </Button>
             <Button variant="outline" onClick={() => void handleCheckStatus()} disabled={isFetching}>
               Check status now

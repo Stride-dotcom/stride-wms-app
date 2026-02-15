@@ -1,0 +1,233 @@
+import { useMemo, useState } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { MaterialIcon } from "@/components/ui/MaterialIcon";
+import { TenantCompanySettings } from "@/hooks/useTenantSettings";
+import { useSmsAddonActivation } from "@/hooks/useSmsAddonActivation";
+import { useToast } from "@/hooks/use-toast";
+
+const SMS_TERMS_VERSION = "sms-addon-v1";
+
+interface SmsAddonActivationCardProps {
+  settings: TenantCompanySettings | null;
+}
+
+function hasText(value: string | null | undefined): boolean {
+  return Boolean(value && value.trim().length > 0);
+}
+
+function isHttpsUrl(value: string | null | undefined): boolean {
+  if (!value || !value.trim()) return false;
+  try {
+    const parsed = new URL(value.trim());
+    return parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function formatDate(value: string | null): string {
+  if (!value) return "—";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "—";
+  return parsed.toLocaleString();
+}
+
+export function SmsAddonActivationCard({ settings }: SmsAddonActivationCardProps) {
+  const { toast } = useToast();
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const { data: activationState, isLoading, activateSmsAddon, isActivating } = useSmsAddonActivation();
+
+  const readinessItems = useMemo(
+    () => [
+      {
+        id: "sender",
+        label: "Twilio sender configured (Account SID + Messaging Service SID or From Number)",
+        ready:
+          hasText(settings?.twilio_account_sid) &&
+          (hasText(settings?.twilio_messaging_service_sid) || hasText(settings?.twilio_from_phone)),
+      },
+      {
+        id: "sms-enabled",
+        label: "SMS sending enabled",
+        ready: settings?.sms_enabled === true,
+      },
+      {
+        id: "proof-consent",
+        label: "Proof of consent URL (HTTPS)",
+        ready: isHttpsUrl(settings?.sms_proof_of_consent_url),
+      },
+      {
+        id: "privacy",
+        label: "Privacy policy URL (HTTPS)",
+        ready: isHttpsUrl(settings?.sms_privacy_policy_url),
+      },
+      {
+        id: "terms",
+        label: "Terms URL (HTTPS)",
+        ready: isHttpsUrl(settings?.sms_terms_conditions_url),
+      },
+      {
+        id: "compliance-copy",
+        label: "Compliance messages completed (opt-in/help/stop)",
+        ready:
+          hasText(settings?.sms_opt_in_message) &&
+          hasText(settings?.sms_help_message) &&
+          hasText(settings?.sms_stop_message),
+      },
+      {
+        id: "use-case",
+        label: "Use case + sample message completed",
+        ready: hasText(settings?.sms_use_case_description) && hasText(settings?.sms_sample_message),
+      },
+    ],
+    [settings]
+  );
+
+  const readyCount = readinessItems.filter((item) => item.ready).length;
+  const checklistComplete = readyCount === readinessItems.length;
+  const isActive = activationState?.is_active === true;
+
+  const handleActivate = async () => {
+    if (!acceptedTerms) {
+      toast({
+        variant: "destructive",
+        title: "Terms confirmation required",
+        description: "Please confirm terms acceptance before activating SMS add-on.",
+      });
+      return;
+    }
+
+    try {
+      await activateSmsAddon({
+        termsVersion: SMS_TERMS_VERSION,
+        acceptanceSource: "settings_sms_activation_card",
+      });
+
+      setAcceptedTerms(false);
+      toast({
+        title: isActive ? "SMS terms updated" : "SMS add-on activated",
+        description:
+          "Terms acceptance has been recorded with audit metadata (version, time, user, IP, user-agent, source).",
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to activate SMS add-on.";
+      toast({
+        variant: "destructive",
+        title: "Activation failed",
+        description: message,
+      });
+    }
+  };
+
+  return (
+    <Card className="mt-6">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <MaterialIcon name="add_task" size="md" />
+          SMS Add-On Activation
+        </CardTitle>
+        <CardDescription>
+          Activate SMS billing after setup is complete and terms are accepted.
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent className="space-y-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={isActive ? "default" : "secondary"}>
+            {isActive ? "Active" : "Not Activated"}
+          </Badge>
+          <span className="text-xs text-muted-foreground">
+            Terms version: {activationState?.terms_version ?? "—"}
+          </span>
+        </div>
+
+        <Alert className="bg-muted/50 border-muted-foreground/20">
+          <MaterialIcon name="shield" size="sm" />
+          <AlertDescription className="text-sm">
+            Activation captures compliance evidence for terms acceptance: version, accepted timestamp, accepted-by user
+            id, IP address, user-agent, and acceptance source.
+          </AlertDescription>
+        </Alert>
+
+        <div className="border rounded-md p-4 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h4 className="text-sm font-medium">Activation readiness checklist</h4>
+            <Badge variant={checklistComplete ? "default" : "secondary"}>
+              {readyCount}/{readinessItems.length} complete
+            </Badge>
+          </div>
+          <div className="grid gap-2">
+            {readinessItems.map((item) => (
+              <div key={item.id} className="flex items-center gap-2 text-xs">
+                <MaterialIcon
+                  name={item.ready ? "check_circle" : "radio_button_unchecked"}
+                  size="sm"
+                  className={item.ready ? "text-green-600" : "text-muted-foreground"}
+                />
+                <span className={item.ready ? "text-foreground" : "text-muted-foreground"}>{item.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-3">
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="sms-addon-terms"
+              checked={acceptedTerms}
+              onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
+            />
+            <Label htmlFor="sms-addon-terms" className="text-sm font-normal leading-5">
+              I confirm we agree to the SMS add-on terms (version: <span className="font-medium">{SMS_TERMS_VERSION}</span>)
+              and that our consent workflow is configured.
+            </Label>
+          </div>
+
+          {settings?.sms_terms_conditions_url && (
+            <Button
+              type="button"
+              variant="link"
+              className="px-0 h-auto text-xs"
+              onClick={() => window.open(settings.sms_terms_conditions_url || "", "_blank", "noopener,noreferrer")}
+            >
+              <MaterialIcon name="open_in_new" size="sm" className="mr-1" />
+              Open configured SMS terms URL
+            </Button>
+          )}
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-2 text-xs text-muted-foreground">
+          <div>Activated at: {formatDate(activationState?.activated_at ?? null)}</div>
+          <div>Last terms accepted at: {formatDate(activationState?.terms_accepted_at ?? null)}</div>
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <Button
+            type="button"
+            onClick={() => void handleActivate()}
+            disabled={isLoading || isActivating || !acceptedTerms || !checklistComplete}
+          >
+            {isActivating ? (
+              <>
+                <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : isActive ? (
+              "Re-confirm Terms"
+            ) : (
+              "Activate SMS Add-On"
+            )}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
