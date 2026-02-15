@@ -19,6 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { MaterialIcon } from "@/components/ui/MaterialIcon";
 import { TenantCompanySettings } from "@/hooks/useTenantSettings";
 import { useSmsAddonActivation } from "@/hooks/useSmsAddonActivation";
+import { useSmsSenderProvisioning } from "@/hooks/useSmsSenderProvisioning";
 import { useToast } from "@/hooks/use-toast";
 
 const SMS_TERMS_VERSION = "sms-addon-v1";
@@ -48,6 +49,10 @@ function formatDate(value: string | null): string {
   return parsed.toLocaleString();
 }
 
+function isSenderRequested(status: string): boolean {
+  return ["requested", "provisioning", "pending_verification", "approved"].includes(status);
+}
+
 export function SmsAddonActivationCard({ settings }: SmsAddonActivationCardProps) {
   const { toast } = useToast();
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -60,20 +65,20 @@ export function SmsAddonActivationCard({ settings }: SmsAddonActivationCardProps
     deactivateSmsAddon,
     isDeactivating,
   } = useSmsAddonActivation();
+  const {
+    data: senderProfile,
+    isLoading: senderLoading,
+    requestProvisioning,
+    isRequestingProvisioning,
+  } = useSmsSenderProvisioning();
+  const senderStatus = senderProfile?.provisioning_status ?? "not_requested";
 
   const readinessItems = useMemo(
     () => [
       {
         id: "sender",
-        label: "Twilio sender configured (Account SID + Messaging Service SID or From Number)",
-        ready:
-          hasText(settings?.twilio_account_sid) &&
-          (hasText(settings?.twilio_messaging_service_sid) || hasText(settings?.twilio_from_phone)),
-      },
-      {
-        id: "sms-enabled",
-        label: "SMS sending enabled",
-        ready: settings?.sms_enabled === true,
+        label: "Platform-managed toll-free sender request submitted",
+        ready: isSenderRequested(senderStatus),
       },
       {
         id: "proof-consent",
@@ -104,13 +109,14 @@ export function SmsAddonActivationCard({ settings }: SmsAddonActivationCardProps
         ready: hasText(settings?.sms_use_case_description) && hasText(settings?.sms_sample_message),
       },
     ],
-    [settings]
+    [senderStatus, settings]
   );
 
   const readyCount = readinessItems.filter((item) => item.ready).length;
   const checklistComplete = readyCount === readinessItems.length;
   const isActive = activationState?.is_active === true;
   const activationStatus = activationState?.activation_status ?? "not_activated";
+  const senderPhone = senderProfile?.twilio_phone_number_e164 ?? "—";
 
   const statusLabel: Record<string, string> = {
     active: "Active",
@@ -124,6 +130,24 @@ export function SmsAddonActivationCard({ settings }: SmsAddonActivationCardProps
     disabled: "destructive",
     paused: "secondary",
     not_activated: "outline",
+  };
+  const senderStatusLabel: Record<string, string> = {
+    not_requested: "Not Requested",
+    requested: "Requested",
+    provisioning: "Provisioning",
+    pending_verification: "Pending Verification",
+    approved: "Approved",
+    rejected: "Rejected",
+    disabled: "Disabled",
+  };
+  const senderStatusVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+    not_requested: "outline",
+    requested: "secondary",
+    provisioning: "secondary",
+    pending_verification: "secondary",
+    approved: "default",
+    rejected: "destructive",
+    disabled: "destructive",
   };
 
   const handleActivate = async () => {
@@ -180,6 +204,27 @@ export function SmsAddonActivationCard({ settings }: SmsAddonActivationCardProps
     }
   };
 
+  const handleRequestProvisioning = async () => {
+    try {
+      await requestProvisioning({
+        requestSource: "settings_sms_activation_card",
+      });
+      toast({
+        title: "Provisioning requested",
+        description:
+          "Toll-free sender provisioning request submitted. SMS remains disabled until verification is approved.",
+      });
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Failed to request sender provisioning.";
+      toast({
+        variant: "destructive",
+        title: "Request failed",
+        description: message,
+      });
+    }
+  };
+
   return (
     <Card className="mt-6">
       <CardHeader>
@@ -188,11 +233,67 @@ export function SmsAddonActivationCard({ settings }: SmsAddonActivationCardProps
           SMS Add-On Activation
         </CardTitle>
         <CardDescription>
-          Activate SMS billing after setup is complete and terms are accepted.
+          Platform-managed SMS setup: request a toll-free sender, complete compliance fields, then
+          activate terms acceptance.
         </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-5">
+        <div className="space-y-3 rounded-md border p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Sender Provisioning</p>
+              <Badge variant={senderStatusVariant[senderStatus] || "secondary"}>
+                {senderStatusLabel[senderStatus] || senderStatus}
+              </Badge>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void handleRequestProvisioning()}
+              disabled={
+                senderLoading ||
+                isRequestingProvisioning ||
+                senderStatus === "requested" ||
+                senderStatus === "provisioning" ||
+                senderStatus === "pending_verification" ||
+                senderStatus === "approved"
+              }
+            >
+              {isRequestingProvisioning ? (
+                <>
+                  <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
+                  Requesting...
+                </>
+              ) : (
+                <>
+                  <MaterialIcon name="add" size="sm" className="mr-2" />
+                  Request Toll-Free Sender
+                </>
+              )}
+            </Button>
+          </div>
+          <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+            <div>Requested at: {formatDate(senderProfile?.requested_at ?? null)}</div>
+            <div>Verification submitted: {formatDate(senderProfile?.verification_submitted_at ?? null)}</div>
+            <div>Verification approved: {formatDate(senderProfile?.verification_approved_at ?? null)}</div>
+            <div>Assigned number: {senderPhone}</div>
+          </div>
+          {senderStatus === "rejected" && senderProfile?.last_error && (
+            <Alert variant="destructive">
+              <MaterialIcon name="error" size="sm" />
+              <AlertDescription className="text-sm">{senderProfile.last_error}</AlertDescription>
+            </Alert>
+          )}
+        </div>
+
+        <Alert className="border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900">
+          <MaterialIcon name="info" size="sm" className="text-amber-700 dark:text-amber-300" />
+          <AlertDescription className="text-sm text-amber-900 dark:text-amber-200">
+            SMS sending stays disabled until toll-free verification is approved by platform ops.
+          </AlertDescription>
+        </Alert>
+
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={statusVariant[activationStatus] || "secondary"}>
             {statusLabel[activationStatus] || activationStatus}
@@ -206,7 +307,8 @@ export function SmsAddonActivationCard({ settings }: SmsAddonActivationCardProps
           <Alert className="border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900">
             <MaterialIcon name="info" size="sm" className="text-amber-700 dark:text-amber-300" />
             <AlertDescription className="text-sm text-amber-900 dark:text-amber-200">
-              SMS add-on is currently disabled. Re-enable SMS in Twilio settings, then confirm terms again to reactivate.
+              SMS add-on is currently disabled. Re-confirm terms to reactivate once sender verification
+              is approved.
             </AlertDescription>
           </Alert>
         )}
@@ -288,7 +390,15 @@ export function SmsAddonActivationCard({ settings }: SmsAddonActivationCardProps
           <Button
             type="button"
             onClick={() => void handleActivate()}
-            disabled={isLoading || isActivating || isDeactivating || !acceptedTerms || !checklistComplete}
+            disabled={
+              isLoading ||
+              senderLoading ||
+              isActivating ||
+              isDeactivating ||
+              isRequestingProvisioning ||
+              !acceptedTerms ||
+              !checklistComplete
+            }
           >
             {isActivating ? (
               <>

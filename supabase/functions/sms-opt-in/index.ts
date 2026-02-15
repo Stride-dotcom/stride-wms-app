@@ -16,6 +16,15 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+const RESERVED_SUBDOMAINS = new Set([
+  "www",
+  "app",
+  "preview",
+  "preview--stridewms",
+  "stridewms",
+  "localhost",
+]);
+
 function normalizePhone(raw: string): string {
   const stripped = raw.replace(/[\s\-()]/g, "");
   const digitsOnly = stripped.startsWith("+")
@@ -32,6 +41,44 @@ function normalizePhone(raw: string): string {
   return digitsOnly;
 }
 
+function normalizeHost(rawHost: string): string {
+  return rawHost.trim().toLowerCase().split(":")[0];
+}
+
+function extractTenantSubdomain(rawHost: string): string | null {
+  const host = normalizeHost(rawHost);
+  if (!host || host === "localhost") return null;
+
+  const labels = host.split(".").filter(Boolean);
+  if (labels.length < 3) return null;
+
+  const candidate = labels[0];
+  if (!candidate || RESERVED_SUBDOMAINS.has(candidate)) return null;
+
+  return candidate;
+}
+
+async function resolveTenantIdFromHost(
+  supabase: ReturnType<typeof createClient>,
+  rawHost: string
+): Promise<string | null> {
+  const subdomain = extractTenantSubdomain(rawHost);
+  if (!subdomain) return null;
+
+  const { data, error } = await supabase
+    .from("tenant_company_settings")
+    .select("tenant_id")
+    .ilike("app_subdomain", subdomain)
+    .maybeSingle();
+
+  if (error) {
+    console.error("resolveTenantIdFromHost lookup error:", error.message);
+    return null;
+  }
+
+  return data?.tenant_id ?? null;
+}
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -43,17 +90,31 @@ const handler = async (req: Request): Promise<Response> => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body = await req.json();
-    const { action, tenant_id } = body;
+    const action = body?.action;
+    const providedTenantId =
+      typeof body?.tenant_id === "string" && body.tenant_id.trim()
+        ? body.tenant_id.trim()
+        : null;
+    const requestedHost =
+      typeof body?.host === "string" && body.host.trim() ? body.host.trim() : null;
+    let resolvedTenantId = providedTenantId;
 
-    if (!tenant_id) {
-      return jsonResponse({ error: "Missing tenant_id" }, 400);
+    if (!resolvedTenantId && requestedHost) {
+      resolvedTenantId = await resolveTenantIdFromHost(supabase, requestedHost);
+    }
+
+    if (!resolvedTenantId) {
+      return jsonResponse(
+        { error: "Missing tenant context. Provide tenant_id or use a configured tenant subdomain." },
+        400
+      );
     }
 
     // Verify tenant exists
     const { data: tenant } = await supabase
       .from("tenants")
       .select("id, name, status")
-      .eq("id", tenant_id)
+      .eq("id", resolvedTenantId)
       .eq("status", "active")
       .maybeSingle();
 
@@ -61,17 +122,18 @@ const handler = async (req: Request): Promise<Response> => {
       return jsonResponse({ error: "Organization not found" }, 404);
     }
 
-    if (action === "get_tenant_info") {
+    if (action === "get_tenant_info" || action === "resolve_tenant") {
       // Return public branding info for the opt-in form
       const { data: settings } = await supabase
         .from("tenant_company_settings")
         .select(
           "company_name, company_email, company_phone, logo_url, sms_opt_in_message, sms_help_message, sms_privacy_policy_url, sms_terms_conditions_url"
         )
-        .eq("tenant_id", tenant_id)
+        .eq("tenant_id", resolvedTenantId)
         .maybeSingle();
 
       return jsonResponse({
+        tenant_id: resolvedTenantId,
         tenant: {
           company_name: settings?.company_name || tenant.name,
           company_email: settings?.company_email || null,
@@ -108,7 +170,7 @@ const handler = async (req: Request): Promise<Response> => {
       const { data: existing } = await supabase
         .from("sms_consent")
         .select("id, status")
-        .eq("tenant_id", tenant_id)
+        .eq("tenant_id", resolvedTenantId)
         .eq("phone_number", normalized)
         .maybeSingle();
 
@@ -133,7 +195,7 @@ const handler = async (req: Request): Promise<Response> => {
           .eq("id", existing.id);
 
         await supabase.from("sms_consent_log").insert({
-          tenant_id,
+          tenant_id: resolvedTenantId,
           consent_id: existing.id,
           phone_number: normalized,
           action: "opt_in",
@@ -146,7 +208,7 @@ const handler = async (req: Request): Promise<Response> => {
         const { data: newRecord, error: insertError } = await supabase
           .from("sms_consent")
           .insert({
-            tenant_id,
+            tenant_id: resolvedTenantId,
             phone_number: normalized,
             contact_name: contact_name || null,
             status: "opted_in",
@@ -173,7 +235,7 @@ const handler = async (req: Request): Promise<Response> => {
 
         if (newRecord) {
           await supabase.from("sms_consent_log").insert({
-            tenant_id,
+            tenant_id: resolvedTenantId,
             consent_id: newRecord.id,
             phone_number: normalized,
             action: "opt_in",

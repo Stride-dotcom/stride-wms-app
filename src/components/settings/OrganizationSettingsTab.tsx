@@ -37,7 +37,6 @@ import { DueDateRulesSettingsTab } from './DueDateRulesSettingsTab';
 import { PreferencesContent } from './preferences/PreferencesContent';
 import { LegalLinksSection } from './preferences/LegalLinksSection';
 import { EmailDomainSection } from './preferences/EmailDomainSection';
-import { TwilioSmsCard } from './TwilioSmsCard';
 import { SmsAddonActivationCard } from './SmsAddonActivationCard';
 import { SmsConsentPanel } from './SmsConsentPanel';
 
@@ -318,7 +317,7 @@ export function OrganizationSettingsTab() {
                             <Input type="email" placeholder="contact@company.com" {...field} />
                           </FormControl>
                           <FormDescription>
-                            Used as the reply-to address on outgoing system emails
+                            Used as the reply-to address on outgoing system emails and for billing notices (including price-change notifications).
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
@@ -482,13 +481,6 @@ export function OrganizationSettingsTab() {
 
               {/* Email Domain Configuration */}
               <EmailDomainSection />
-
-              {/* Twilio SMS Configuration */}
-              <TwilioSmsCard
-                settings={tenantSettings}
-                tenantId={profile?.tenant_id || ''}
-                onUpdate={updateSettings}
-              />
 
               {/* SMS Add-On Activation */}
               <SmsAddonActivationCard settings={tenantSettings} />
