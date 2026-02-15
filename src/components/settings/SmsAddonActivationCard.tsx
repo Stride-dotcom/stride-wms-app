@@ -1,5 +1,15 @@
 import { useMemo, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,7 +51,15 @@ function formatDate(value: string | null): string {
 export function SmsAddonActivationCard({ settings }: SmsAddonActivationCardProps) {
   const { toast } = useToast();
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const { data: activationState, isLoading, activateSmsAddon, isActivating } = useSmsAddonActivation();
+  const [deactivateConfirmOpen, setDeactivateConfirmOpen] = useState(false);
+  const {
+    data: activationState,
+    isLoading,
+    activateSmsAddon,
+    isActivating,
+    deactivateSmsAddon,
+    isDeactivating,
+  } = useSmsAddonActivation();
 
   const readinessItems = useMemo(
     () => [
@@ -92,6 +110,21 @@ export function SmsAddonActivationCard({ settings }: SmsAddonActivationCardProps
   const readyCount = readinessItems.filter((item) => item.ready).length;
   const checklistComplete = readyCount === readinessItems.length;
   const isActive = activationState?.is_active === true;
+  const activationStatus = activationState?.activation_status ?? "not_activated";
+
+  const statusLabel: Record<string, string> = {
+    active: "Active",
+    disabled: "Disabled",
+    paused: "Paused",
+    not_activated: "Not Activated",
+  };
+
+  const statusVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+    active: "default",
+    disabled: "destructive",
+    paused: "secondary",
+    not_activated: "outline",
+  };
 
   const handleActivate = async () => {
     if (!acceptedTerms) {
@@ -125,6 +158,28 @@ export function SmsAddonActivationCard({ settings }: SmsAddonActivationCardProps
     }
   };
 
+  const handleDeactivate = async () => {
+    try {
+      await deactivateSmsAddon({
+        reason: "self_deactivation",
+        acceptanceSource: "settings_sms_activation_card",
+      });
+      setDeactivateConfirmOpen(false);
+      setAcceptedTerms(false);
+      toast({
+        title: "SMS add-on deactivated",
+        description: "SMS add-on was deactivated and SMS sending was turned off for your tenant.",
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to deactivate SMS add-on.";
+      toast({
+        variant: "destructive",
+        title: "Deactivation failed",
+        description: message,
+      });
+    }
+  };
+
   return (
     <Card className="mt-6">
       <CardHeader>
@@ -139,13 +194,22 @@ export function SmsAddonActivationCard({ settings }: SmsAddonActivationCardProps
 
       <CardContent className="space-y-5">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={isActive ? "default" : "secondary"}>
-            {isActive ? "Active" : "Not Activated"}
+          <Badge variant={statusVariant[activationStatus] || "secondary"}>
+            {statusLabel[activationStatus] || activationStatus}
           </Badge>
           <span className="text-xs text-muted-foreground">
             Terms version: {activationState?.terms_version ?? "—"}
           </span>
         </div>
+
+        {activationStatus === "disabled" && (
+          <Alert className="border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900">
+            <MaterialIcon name="info" size="sm" className="text-amber-700 dark:text-amber-300" />
+            <AlertDescription className="text-sm text-amber-900 dark:text-amber-200">
+              SMS add-on is currently disabled. Re-enable SMS in Twilio settings, then confirm terms again to reactivate.
+            </AlertDescription>
+          </Alert>
+        )}
 
         <Alert className="bg-muted/50 border-muted-foreground/20">
           <MaterialIcon name="shield" size="sm" />
@@ -210,10 +274,21 @@ export function SmsAddonActivationCard({ settings }: SmsAddonActivationCardProps
         </div>
 
         <div className="flex justify-end gap-2">
+          {isActive && (
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => setDeactivateConfirmOpen(true)}
+              disabled={isLoading || isActivating || isDeactivating}
+            >
+              <MaterialIcon name="block" size="sm" className="mr-2" />
+              Deactivate SMS Add-On
+            </Button>
+          )}
           <Button
             type="button"
             onClick={() => void handleActivate()}
-            disabled={isLoading || isActivating || !acceptedTerms || !checklistComplete}
+            disabled={isLoading || isActivating || isDeactivating || !acceptedTerms || !checklistComplete}
           >
             {isActivating ? (
               <>
@@ -228,6 +303,31 @@ export function SmsAddonActivationCard({ settings }: SmsAddonActivationCardProps
           </Button>
         </div>
       </CardContent>
+
+      <AlertDialog open={deactivateConfirmOpen} onOpenChange={setDeactivateConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deactivate SMS add-on?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will disable SMS add-on billing status for your tenant and turn off SMS sending. You can reactivate
+              later by completing the checklist and accepting terms again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeactivating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void handleDeactivate();
+              }}
+              disabled={isDeactivating}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeactivating ? "Deactivating..." : "Yes, Deactivate"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
