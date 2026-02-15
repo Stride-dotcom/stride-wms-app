@@ -75,6 +75,7 @@ import PrintPreview from "./pages/PrintPreview";
 import Diagnostics from "./pages/Diagnostics";
 import BotQA from "./pages/admin/BotQA";
 import StripeOps from "./pages/admin/StripeOps";
+import PricingOps from "./pages/admin/PricingOps";
 import QACenter from "./pages/QACenter";
 import DecisionLedger from "./pages/DecisionLedger";
 import Messages from "./pages/Messages";
@@ -163,6 +164,7 @@ const App = () => (
             <Route path="/diagnostics" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'admin_dev']}><Diagnostics /></RequireRole></ProtectedRoute>} />
             <Route path="/admin/bot-qa" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'admin_dev']}><BotQA /></RequireRole></ProtectedRoute>} />
             <Route path="/admin/stripe-ops" element={<ProtectedRoute><RequireRole role={['admin_dev']}><StripeOps /></RequireRole></ProtectedRoute>} />
+            <Route path="/admin/pricing-ops" element={<ProtectedRoute><RequireRole role={['admin_dev']}><PricingOps /></RequireRole></ProtectedRoute>} />
             <Route path="/qa" element={<ProtectedRoute><QACenter /></ProtectedRoute>} />
             <Route path="/decision-ledger" element={<ProtectedRoute><RequireRole role="admin_dev"><DecisionLedger /></RequireRole></ProtectedRoute>} />
             <Route path="/repair-access" element={<RepairTechAccess />} />
