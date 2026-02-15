@@ -3,6 +3,9 @@
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
+const args = new Set(process.argv.slice(2));
+const isDryRun = args.has("--dry-run");
+
 const pendingDir = resolve("docs/ledger/packets/pending");
 const requiredSections = [
   "## Decision Index Rows",
@@ -77,7 +80,7 @@ if (files.length === 0) {
 const results = files.map(validatePacket);
 const errors = results.flatMap((r) => r.errors.map((message) => ({ path: r.path, message })));
 
-console.log("Ledger packet dry-run summary");
+console.log(isDryRun ? "Ledger packet dry-run summary" : "Ledger packet validation summary");
 console.log(`Pending directory: ${pendingDir}`);
 console.log(`Packets discovered: ${results.length}`);
 
@@ -103,4 +106,8 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log("\nDry-run validation passed. No files were modified.");
+if (isDryRun) {
+  console.log("\nDry-run validation passed. No files were modified.");
+} else {
+  console.log("\nValidation passed. Packet apply mode is not implemented in this runtime.");
+}
