@@ -62,6 +62,17 @@ function parseRequestedRoutes(): string[] | null {
   return parsed.length > 0 ? parsed : null;
 }
 
+function looksLikeDynamicIdSegment(segment: string): boolean {
+  if (!segment) return false;
+  if (segment.startsWith(':')) return true;
+  if (/^\d+$/.test(segment)) return true;
+  // UUID (common for Supabase IDs)
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(segment)) return true;
+  // Generic token with digits (e.g. codes like ABC123, ulids, etc.)
+  if (segment.length >= 5 && /\d/.test(segment)) return true;
+  return false;
+}
+
 function routeTokenMatchesTour(routeToken: string, tourRoute: string): boolean {
   const token = normalizeRoutePath(routeToken);
   const tour = normalizeRoutePath(tourRoute);
@@ -70,10 +81,16 @@ function routeTokenMatchesTour(routeToken: string, tourRoute: string): boolean {
   if (tour.startsWith(`${token}/`) || token.startsWith(`${tour}/`)) return true;
 
   if (tour.includes(':')) {
-    const tourRegex = new RegExp(
-      `^${tour.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/:[^/]+/g, '[^/]+')}$`
-    );
-    if (tourRegex.test(token)) return true;
+    const tokenParts = token.split('/').filter(Boolean);
+    const tourParts = tour.split('/').filter(Boolean);
+    if (tokenParts.length === tourParts.length) {
+      const matches = tourParts.every((part, idx) => {
+        const tokenPart = tokenParts[idx] || '';
+        if (part.startsWith(':')) return looksLikeDynamicIdSegment(tokenPart);
+        return part === tokenPart;
+      });
+      if (matches) return true;
+    }
   }
 
   return false;
@@ -1348,7 +1365,7 @@ function generateCoverageReport(): TourCoverageReport {
   const selectedDeepTours = getSelectedDeepTours();
   const allTours = [...SELECTED_PAGE_TOURS, ...selectedDeepTours];
   const allRoutes = ROUTE_FILTER
-    ? [...new Set(allTours.map((t) => t.route))]
+    ? getAllRoutes().filter((r) => ROUTE_FILTER.some((token) => routeTokenMatchesTour(token, r)))
     : getAllRoutes();
   const routesWithTours = [...new Set(allTours.map(t => t.route))];
   const routesWithoutTours = allRoutes.filter(r => !routesWithTours.includes(r));
@@ -1364,7 +1381,7 @@ function generateCoverageReport(): TourCoverageReport {
     routesWithoutTours,
     missingTestIds: missingTestIdsList,
     skippedSteps,
-    coveragePercent: Math.round((routesWithTours.length / allRoutes.length) * 100),
+    coveragePercent: allRoutes.length === 0 ? 0 : Math.round((routesWithTours.length / allRoutes.length) * 100),
     p0Count: allTours.filter(t => t.priority === 'P0').length,
     p1Count: allTours.filter(t => t.priority === 'P1').length,
     p2Count: allTours.filter(t => t.priority === 'P2').length,
@@ -1466,6 +1483,39 @@ test.describe('UI Visual QA', () => {
           await page.close();
         }
       });
+    }
+  } else {
+    // If a ROUTES filter yields zero tours (and deep is disabled or has no matches),
+    // ensure we still register runnable tests rather than failing with "No tests found".
+    const selectedDeepTours = getSelectedDeepTours();
+    const hasAnyTours = SELECTED_PAGE_TOURS.length > 0 || selectedDeepTours.length > 0;
+
+    if (!hasAnyTours) {
+      const scopedRoutes = getAllRoutes().filter((r) => ROUTE_FILTER.some((token) => routeTokenMatchesTour(token, r)));
+
+      if (scopedRoutes.length === 0) {
+        test('[P2] ROUTES filter: no matching tours or routes', async () => {
+          test.skip(true, 'ROUTES filter did not match any defined tours or known routes.');
+        });
+      } else {
+        for (const route of scopedRoutes.slice(0, 10)) {
+          test(`[P2] Route-only (scoped): ${route}`, async (_fixtures, testInfo) => {
+            const viewport = resolveProjectViewport(testInfo.project.name);
+            const page = await adminContext.newPage();
+
+            try {
+              const result = await testRoute(page, route, viewport);
+              testResults.push(result);
+
+              if (result.status === 'fail') {
+                expect.soft(result.error_message).toBeUndefined();
+              }
+            } finally {
+              await page.close();
+            }
+          });
+        }
+      }
     }
   }
 });
