@@ -45,6 +45,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { useSmsAddonActivation } from '@/hooks/useSmsAddonActivation';
+import { useSmsSenderProvisioning } from '@/hooks/useSmsSenderProvisioning';
 
 interface Account {
   id: string;
@@ -76,6 +77,10 @@ export default function Billing() {
     data: smsAddonActivation,
     isLoading: smsAddonLoading,
   } = useSmsAddonActivation();
+  const {
+    data: senderProfile,
+    isLoading: senderProfileLoading,
+  } = useSmsSenderProvisioning();
   const { invoices, loading: invoicesLoading, createInvoice, updateInvoiceStatus, refetch: refetchInvoices } = useInvoices();
   const [startingSubscription, setStartingSubscription] = useState(false);
   const [subscriptionSnapshot, setSubscriptionSnapshot] = useState<TenantSubscriptionSnapshot | null>(null);
@@ -330,6 +335,7 @@ export default function Billing() {
   const getSubscriptionStatusBadge = (status: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
       active: 'default',
+      approved: 'default',
       past_due: 'destructive',
       canceled: 'secondary',
       inactive: 'secondary',
@@ -337,6 +343,11 @@ export default function Billing() {
       disabled: 'destructive',
       paused: 'secondary',
       not_activated: 'outline',
+      not_requested: 'outline',
+      requested: 'secondary',
+      provisioning: 'secondary',
+      pending_verification: 'secondary',
+      rejected: 'destructive',
     };
     return <Badge variant={variants[status] || 'secondary'}>{status}</Badge>;
   };
@@ -354,6 +365,7 @@ export default function Billing() {
   const isNewSubscriber = gate?.status === 'none';
   const baseSubscriptionStatus = subscriptionSnapshot?.status || gate?.status || 'none';
   const smsActivationStatus = smsAddonActivation?.activation_status || 'not_activated';
+  const senderProvisioningStatus = senderProfile?.provisioning_status || 'not_requested';
 
   const handleSubscriptionAction = async () => {
     setStartingSubscription(true);
@@ -417,7 +429,7 @@ export default function Billing() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {subscriptionSummaryLoading || smsAddonLoading ? (
+            {subscriptionSummaryLoading || smsAddonLoading || senderProfileLoading ? (
               <div className="flex items-center justify-center py-8">
                 <MaterialIcon name="progress_activity" size="md" className="animate-spin text-muted-foreground" />
               </div>
@@ -447,6 +459,10 @@ export default function Billing() {
                     {getSubscriptionStatusBadge(smsActivationStatus)}
                   </div>
                   <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Sender Provisioning</p>
+                    {getSubscriptionStatusBadge(senderProvisioningStatus)}
+                  </div>
+                  <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">SMS Terms Version</p>
                     <p className="text-sm font-medium">{smsAddonActivation?.terms_version || '—'}</p>
                   </div>
@@ -459,10 +475,27 @@ export default function Billing() {
                     <p className="text-sm font-medium">{formatSummaryDate(smsAddonActivation?.terms_accepted_at)}</p>
                   </div>
                   <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">SMS Billing Start</p>
+                    <p className="text-sm font-medium">{formatSummaryDate(senderProfile?.billing_start_at)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Assigned Sender Number</p>
+                    <p className="text-sm font-mono">{senderProfile?.twilio_phone_number_e164 || '—'}</p>
+                  </div>
+                  <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">Stripe Customer</p>
                     <p className="text-sm font-mono">{truncateStripeId(subscriptionSnapshot?.stripe_customer_id)}</p>
                   </div>
                 </div>
+
+                {senderProvisioningStatus !== 'approved' && (
+                  <Alert>
+                    <MaterialIcon name="sms_failed" size="sm" />
+                    <AlertDescription className="text-sm">
+                      SMS remains disabled until toll-free sender verification is approved. Complete/request setup in Settings.
+                    </AlertDescription>
+                  </Alert>
+                )}
 
                 {smsActivationStatus === 'disabled' && (
                   <Alert>
