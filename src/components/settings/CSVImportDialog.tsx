@@ -41,6 +41,7 @@ interface ParsedLocation {
   type: string;
   warehouseName: string;
   status: 'active' | 'inactive' | 'full';
+  isActive: boolean;
   capacitySqFt: number | null;
   capacityCuFt: number | null;
 }
@@ -89,6 +90,22 @@ function detectLocationType(code: string): string {
 
   if (upperCode.includes('DOCK')) {
     return 'dock';
+  }
+
+  // Legacy "zone/storage area" style location codes should map to area.
+  if (
+    upperCode.includes('ZONE') ||
+    upperCode.includes('AREA') ||
+    upperCode.includes('OVERFLOW') ||
+    upperCode.includes('STAGING') ||
+    upperCode.includes('RECEIVING') ||
+    upperCode.includes('STORAGE') ||
+    upperCode === 'IA' ||
+    upperCode === 'I-J' ||
+    upperCode === 'E-F' ||
+    upperCode === 'G-H'
+  ) {
+    return 'area';
   }
 
   if (upperCode.startsWith('BAY-') || /^SW\d*$/.test(upperCode) || /^WW\d*$/.test(upperCode)) {
@@ -154,8 +171,14 @@ async function parseFile(file: File): Promise<ParsedLocation[]> {
 
       const rawWarehouseName = warehouseNameIdx >= 0 ? String(row[warehouseNameIdx] ?? '').trim() : '';
       const rawStatus = statusIdx >= 0 ? String(row[statusIdx] ?? '').trim().toLowerCase() : '';
-      const status: 'active' | 'inactive' | 'full' =
-        rawStatus === 'inactive' || rawStatus === 'full' ? rawStatus : 'active';
+      let status: 'active' | 'inactive' | 'full' = 'active';
+      let isActive = true;
+      if (rawStatus === 'archived' || rawStatus === 'archive') {
+        status = 'inactive';
+        isActive = false;
+      } else if (rawStatus === 'inactive' || rawStatus === 'full' || rawStatus === 'active') {
+        status = rawStatus;
+      }
       const capacitySqFt = capacitySqFtIdx >= 0 ? parseNumber(row[capacitySqFtIdx]) : null;
       const explicitCuFt = capacityCuFtIdx >= 0 ? parseNumber(row[capacityCuFtIdx]) : null;
       const fallbackCapacity = capacityIdx >= 0 ? parseNumber(row[capacityIdx]) : null;
@@ -167,6 +190,7 @@ async function parseFile(file: File): Promise<ParsedLocation[]> {
         type,
         warehouseName: rawWarehouseName,
         status,
+        isActive,
         capacitySqFt,
         capacityCuFt,
       });
@@ -264,6 +288,7 @@ export function CSVImportDialog({
           type: string;
           warehouse_id: string;
           status: 'active' | 'inactive' | 'full';
+          is_active: boolean;
           capacity_sq_ft: number | null;
           capacity_cu_ft: number | null;
           capacity_cuft: number | null;
@@ -288,6 +313,7 @@ export function CSVImportDialog({
             type: toStoredLocationType(loc.type),
             warehouse_id: resolvedWarehouseId,
             status: loc.status,
+            is_active: loc.isActive,
             capacity_sq_ft: loc.capacitySqFt,
             capacity_cu_ft: loc.capacityCuFt,
             capacity_cuft: loc.capacityCuFt,
