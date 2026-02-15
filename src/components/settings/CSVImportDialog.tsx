@@ -176,7 +176,10 @@ async function parseFile(file: File): Promise<ParsedLocation[]> {
       if (rawStatus === 'archived' || rawStatus === 'archive') {
         status = 'inactive';
         isActive = false;
-      } else if (rawStatus === 'inactive' || rawStatus === 'full' || rawStatus === 'active') {
+      } else if (rawStatus === 'inactive') {
+        status = 'inactive';
+        isActive = false;
+      } else if (rawStatus === 'full' || rawStatus === 'active') {
         status = rawStatus;
       }
       const capacitySqFt = capacitySqFtIdx >= 0 ? parseNumber(row[capacitySqFtIdx]) : null;
