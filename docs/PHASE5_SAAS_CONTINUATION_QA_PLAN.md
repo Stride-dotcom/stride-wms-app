@@ -70,6 +70,10 @@ Confirmed present in repo:
 4. **Lock accepted decisions DL-051..DL-062** after deployment verification.
 5. **Log final verification evidence** in `docs/LOCKED_DECISION_IMPLEMENTATION_LOG.md`.
 
+Current cloud-runner blocker:
+- Supabase deploy commands require `SUPABASE_ACCESS_TOKEN` (management API auth), which is not present in this runtime session.
+- Execution can resume immediately once token-based CLI auth is available.
+
 ## Deferred to Phase 6 backlog
 
 - `DL-2026-02-14-072`: Admin-dev configurable SMS `terms_version` management (current state remains fixed at `sms-addon-v1`).

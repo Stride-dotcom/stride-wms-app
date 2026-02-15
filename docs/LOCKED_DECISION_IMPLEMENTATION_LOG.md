@@ -64,6 +64,8 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-042 | 2026-02-14 | DL-2026-02-14-071 | completed | Updated `docs/LOCKED_DECISION_LEDGER.md`, `docs/PHASE5_SAAS_CONTINUATION_QA_PLAN.md`, `src/components/settings/SmsAddonActivationCard.tsx` | builder | Captured accepted re-acceptance policy and clarified in Settings UI that terms must be re-accepted for each reactivation. |
 | DLE-2026-02-14-043 | 2026-02-14 | DL-2026-02-14-071 | verified | `npx tsc --noEmit`, `npm run build` (post commit `78d48a1`) | builder | Local static verification passed after documenting and surfacing reactivation terms re-acceptance requirement. |
 | DLE-2026-02-14-044 | 2026-02-14 | DL-2026-02-14-072 | completed | Updated `docs/LOCKED_DECISION_LEDGER.md`, `docs/PHASE5_SAAS_CONTINUATION_QA_PLAN.md` | builder | Captured explicit reminder that configurable SMS terms-version control is deferred to Phase 6 while keeping current value fixed at `sms-addon-v1`. |
+| DLE-2026-02-14-045 | 2026-02-14 | DL-2026-02-14-063 | blocked | `npx supabase functions deploy ...` in cloud runtime | builder | Deployment execution blocked in this runtime because `SUPABASE_ACCESS_TOKEN` is not available for Supabase management API authentication. |
+| DLE-2026-02-14-046 | 2026-02-14 | DL-2026-02-14-063 | completed | Updated `scripts/phase5_validate.sh`, `docs/PHASE5_DEPLOYMENT_COMMAND_SCRIPT.md` | builder | Hardened deploy helper for current CLI behavior: supports npx fallback, project link + db push flow, and optional DB password for non-interactive migration push. |
 
 ## Event template (copy/paste)
 
