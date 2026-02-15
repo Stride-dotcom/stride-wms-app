@@ -253,17 +253,19 @@ export function TaskDialog({
   };
 
   const fetchAccountItems = async (accountId: string) => {
+    console.log('[TaskDialog] fetchAccountItems called for account:', accountId);
     setLoadingItems(true);
     try {
       const { data, error } = await (supabase
         .from('items') as any)
         .select('id, item_code, description, vendor, sidemark, client_account, account_id, warehouse_id')
         .eq('account_id', accountId)
-        // Items status is now 'active' (legacy 'in_stock' was migrated)
         .neq('status', 'released')
         .neq('status', 'disposed')
         .is('deleted_at', null)
         .order('item_code');
+
+      console.log('[TaskDialog] fetchAccountItems result:', { count: data?.length, error });
 
       if (error) throw error;
 
