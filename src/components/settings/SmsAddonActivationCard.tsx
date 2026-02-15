@@ -49,8 +49,8 @@ function formatDate(value: string | null): string {
   return parsed.toLocaleString();
 }
 
-function isSenderRequested(status: string): boolean {
-  return ["requested", "provisioning", "pending_verification", "approved"].includes(status);
+function isSenderApproved(status: string): boolean {
+  return status === "approved";
 }
 
 export function SmsAddonActivationCard({ settings }: SmsAddonActivationCardProps) {
@@ -77,8 +77,8 @@ export function SmsAddonActivationCard({ settings }: SmsAddonActivationCardProps
     () => [
       {
         id: "sender",
-        label: "Platform-managed toll-free sender request submitted",
-        ready: isSenderRequested(senderStatus),
+        label: "Platform-managed toll-free sender verification approved",
+        ready: isSenderApproved(senderStatus),
       },
       {
         id: "proof-consent",
