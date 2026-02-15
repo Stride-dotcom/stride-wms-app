@@ -53,6 +53,33 @@ interface SetStatusInput {
   note?: string | null;
 }
 
+interface BulkSetStatusInput {
+  tenantIds: string[];
+  status: Exclude<SmsSenderProvisioningStatus, "not_requested">;
+  note?: string | null;
+  error?: string | null;
+}
+
+export interface BulkStatusResult {
+  attempted: number;
+  updated: number;
+  failed: number;
+  failures: Array<{ tenant_id: string; error: string }>;
+}
+
+export type QueueWorkerStep = "requested_to_provisioning" | "provisioning_to_pending_verification";
+
+export interface QueueWorkerRunResult {
+  ok: boolean;
+  step: QueueWorkerStep;
+  from_status: string;
+  to_status: string;
+  attempted: number;
+  transitioned: number;
+  failed: number;
+  failures: Array<{ tenant_id: string; error: string }>;
+}
+
 function toNullableString(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
@@ -109,6 +136,7 @@ export function useSmsSenderOpsAdmin() {
   const [profiles, setProfiles] = useState<SmsSenderOpsProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [runningWorker, setRunningWorker] = useState(false);
 
   const fetchProfiles = useCallback(async (statusFilter?: string) => {
     const { data, error } = await (supabase as any).rpc("rpc_admin_list_sms_sender_profiles", {
@@ -132,26 +160,33 @@ export function useSmsSenderOpsAdmin() {
     void refetch();
   }, [refetch]);
 
+  const callSetSenderStatusRpc = useCallback(
+    async (input: SetStatusInput) => {
+      const { data, error } = await (supabase as any).rpc("rpc_admin_set_sms_sender_status", {
+        p_tenant_id: input.tenantId,
+        p_status: input.status,
+        p_twilio_phone_number_sid: input.twilioPhoneNumberSid ?? null,
+        p_twilio_phone_number_e164: input.twilioPhoneNumberE164 ?? null,
+        p_error: input.error ?? null,
+        p_note: input.note ?? null,
+      });
+
+      if (error) throw new Error(error.message || "Failed to update sender status");
+      return data as Record<string, unknown>;
+    },
+    []
+  );
+
   const setSenderStatus = useCallback(
     async (input: SetStatusInput) => {
       setUpdating(true);
       try {
-        const { data, error } = await (supabase as any).rpc("rpc_admin_set_sms_sender_status", {
-          p_tenant_id: input.tenantId,
-          p_status: input.status,
-          p_twilio_phone_number_sid: input.twilioPhoneNumberSid ?? null,
-          p_twilio_phone_number_e164: input.twilioPhoneNumberE164 ?? null,
-          p_error: input.error ?? null,
-          p_note: input.note ?? null,
-        });
-
-        if (error) throw new Error(error.message || "Failed to update sender status");
-        return data as Record<string, unknown>;
+        return await callSetSenderStatusRpc(input);
       } finally {
         setUpdating(false);
       }
     },
-    []
+    [callSetSenderStatusRpc]
   );
 
   const fetchTenantLog = useCallback(async (tenantId: string, limit = 50) => {
@@ -164,12 +199,89 @@ export function useSmsSenderOpsAdmin() {
     return rows.map((row) => normalizeLogRow(row as Record<string, unknown>));
   }, []);
 
+  const bulkSetSenderStatus = useCallback(
+    async (input: BulkSetStatusInput): Promise<BulkStatusResult> => {
+      const failures: Array<{ tenant_id: string; error: string }> = [];
+      let updated = 0;
+      const uniqueTenantIds = Array.from(new Set(input.tenantIds.filter(Boolean)));
+
+      if (uniqueTenantIds.length === 0) {
+        return {
+          attempted: 0,
+          updated: 0,
+          failed: 0,
+          failures: [],
+        };
+      }
+
+      setUpdating(true);
+      try {
+        for (const tenantId of uniqueTenantIds) {
+          try {
+            await callSetSenderStatusRpc({
+              tenantId,
+              status: input.status,
+              note: input.note ?? null,
+              error: input.error ?? null,
+            });
+            updated += 1;
+          } catch (error: unknown) {
+            failures.push({
+              tenant_id: tenantId,
+              error: error instanceof Error ? error.message : "Unknown update error",
+            });
+          }
+        }
+
+        return {
+          attempted: uniqueTenantIds.length,
+          updated,
+          failed: failures.length,
+          failures,
+        };
+      } finally {
+        setUpdating(false);
+      }
+    },
+    [callSetSenderStatusRpc]
+  );
+
+  const runQueueWorker = useCallback(
+    async (step: QueueWorkerStep, limit = 20, note?: string): Promise<QueueWorkerRunResult> => {
+      setRunningWorker(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("process-sms-sender-queue", {
+          body: {
+            step,
+            limit,
+            note: note ?? null,
+          },
+        });
+        if (error) throw new Error(error.message || "Failed to run queue worker");
+        if (!data || (data as Record<string, unknown>).ok !== true) {
+          const message =
+            data && typeof (data as Record<string, unknown>).error === "string"
+              ? ((data as Record<string, unknown>).error as string)
+              : "Queue worker returned an unexpected response";
+          throw new Error(message);
+        }
+        return data as QueueWorkerRunResult;
+      } finally {
+        setRunningWorker(false);
+      }
+    },
+    []
+  );
+
   return {
     profiles,
     loading,
     updating,
+    runningWorker,
     refetch,
     setSenderStatus,
+    bulkSetSenderStatus,
+    runQueueWorker,
     fetchTenantLog,
   };
 }

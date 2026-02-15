@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,6 +37,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { MaterialIcon } from "@/components/ui/MaterialIcon";
 import { useToast } from "@/hooks/use-toast";
 import {
+  QueueWorkerRunResult,
+  QueueWorkerStep,
   SmsSenderOpsLogEntry,
   SmsSenderOpsProfile,
   SmsSenderProvisioningStatus,
@@ -59,6 +62,21 @@ const MUTABLE_STATUS_OPTIONS: Array<{ value: Exclude<SmsSenderProvisioningStatus
   { value: "approved", label: "Approved" },
   { value: "rejected", label: "Rejected" },
   { value: "disabled", label: "Disabled" },
+];
+
+const WORKER_STEP_OPTIONS: Array<{ value: QueueWorkerStep; label: string; from: string; to: string }> = [
+  {
+    value: "requested_to_provisioning",
+    label: "Requested → Provisioning",
+    from: "requested",
+    to: "provisioning",
+  },
+  {
+    value: "provisioning_to_pending_verification",
+    label: "Provisioning → Pending Verification",
+    from: "provisioning",
+    to: "pending_verification",
+  },
 ];
 
 function statusBadgeVariant(
@@ -90,14 +108,24 @@ function formatDate(value: string | null): string {
 
 export default function SmsSenderOps() {
   const { toast } = useToast();
-  const { profiles, loading, updating, refetch, setSenderStatus, fetchTenantLog } =
-    useSmsSenderOpsAdmin();
+  const {
+    profiles,
+    loading,
+    updating,
+    runningWorker,
+    refetch,
+    setSenderStatus,
+    bulkSetSenderStatus,
+    runQueueWorker,
+    fetchTenantLog,
+  } = useSmsSenderOpsAdmin();
 
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [editingProfile, setEditingProfile] = useState<SmsSenderOpsProfile | null>(null);
   const [historyProfile, setHistoryProfile] = useState<SmsSenderOpsProfile | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyEntries, setHistoryEntries] = useState<SmsSenderOpsLogEntry[]>([]);
+  const [selectedTenantIds, setSelectedTenantIds] = useState<Set<string>>(new Set());
 
   const [nextStatus, setNextStatus] = useState<Exclude<SmsSenderProvisioningStatus, "not_requested">>(
     "requested"
@@ -106,6 +134,14 @@ export default function SmsSenderOps() {
   const [twilioPhoneE164, setTwilioPhoneE164] = useState("");
   const [errorText, setErrorText] = useState("");
   const [noteText, setNoteText] = useState("");
+  const [bulkStatus, setBulkStatus] = useState<Exclude<SmsSenderProvisioningStatus, "not_requested">>(
+    "provisioning"
+  );
+  const [bulkNote, setBulkNote] = useState("");
+  const [workerStep, setWorkerStep] = useState<QueueWorkerStep>("requested_to_provisioning");
+  const [workerLimit, setWorkerLimit] = useState("20");
+  const [workerNote, setWorkerNote] = useState("");
+  const [lastWorkerResult, setLastWorkerResult] = useState<QueueWorkerRunResult | null>(null);
 
   const sortedProfiles = useMemo(() => {
     return [...profiles].sort((a, b) => {
@@ -114,6 +150,35 @@ export default function SmsSenderOps() {
       return bTime - aTime;
     });
   }, [profiles]);
+
+  const visibleTenantIds = useMemo(
+    () => sortedProfiles.map((profile) => profile.tenant_id),
+    [sortedProfiles]
+  );
+  const selectedVisibleCount = visibleTenantIds.filter((tenantId) =>
+    selectedTenantIds.has(tenantId)
+  ).length;
+  const allVisibleSelected =
+    visibleTenantIds.length > 0 &&
+    visibleTenantIds.every((tenantId) => selectedTenantIds.has(tenantId));
+  const selectAllState: boolean | "indeterminate" =
+    selectedVisibleCount === 0
+      ? false
+      : allVisibleSelected
+      ? true
+      : "indeterminate";
+
+  useEffect(() => {
+    setSelectedTenantIds((prev) => {
+      const next = new Set<string>();
+      for (const tenantId of prev) {
+        if (visibleTenantIds.includes(tenantId)) {
+          next.add(tenantId);
+        }
+      }
+      return next;
+    });
+  }, [visibleTenantIds]);
 
   const openEditDialog = (profile: SmsSenderOpsProfile) => {
     setEditingProfile(profile);
@@ -186,7 +251,111 @@ export default function SmsSenderOps() {
 
   const handleFilterChange = async (value: string) => {
     setStatusFilter(value);
+    setSelectedTenantIds(new Set());
     await refetch(value);
+  };
+
+  const toggleSelectTenant = (tenantId: string, checked: boolean) => {
+    setSelectedTenantIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(tenantId);
+      } else {
+        next.delete(tenantId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAllVisible = (checked: boolean) => {
+    setSelectedTenantIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        for (const tenantId of visibleTenantIds) {
+          next.add(tenantId);
+        }
+      } else {
+        for (const tenantId of visibleTenantIds) {
+          next.delete(tenantId);
+        }
+      }
+      return next;
+    });
+  };
+
+  const handleBulkUpdate = async () => {
+    const tenantIds = Array.from(selectedTenantIds);
+    if (tenantIds.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "No tenants selected",
+        description: "Select at least one tenant row to run a bulk update.",
+      });
+      return;
+    }
+
+    try {
+      const result = await bulkSetSenderStatus({
+        tenantIds,
+        status: bulkStatus,
+        note: bulkNote.trim() || null,
+      });
+
+      toast({
+        title: "Bulk status update complete",
+        description: `Updated ${result.updated}/${result.attempted} tenant sender profiles.`,
+      });
+
+      if (result.failed > 0) {
+        toast({
+          variant: "destructive",
+          title: `${result.failed} updates failed`,
+          description: result.failures[0]?.error || "Some updates failed. Check history for details.",
+        });
+      }
+
+      setSelectedTenantIds(new Set());
+      await refetch(statusFilter);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Bulk update failed.";
+      toast({
+        variant: "destructive",
+        title: "Bulk update failed",
+        description: message,
+      });
+    }
+  };
+
+  const handleRunQueueWorker = async () => {
+    const parsedLimit = Number.parseInt(workerLimit, 10);
+    const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 200) : 20;
+
+    try {
+      const result = await runQueueWorker(workerStep, limit, workerNote.trim() || undefined);
+      setLastWorkerResult(result);
+
+      toast({
+        title: "Queue worker run complete",
+        description: `Transitioned ${result.transitioned}/${result.attempted} profiles (${result.from_status} → ${result.to_status}).`,
+      });
+
+      if (result.failed > 0) {
+        toast({
+          variant: "destructive",
+          title: `${result.failed} transitions failed`,
+          description: result.failures[0]?.error || "Some transitions failed.",
+        });
+      }
+
+      await refetch(statusFilter);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Queue worker run failed.";
+      toast({
+        variant: "destructive",
+        title: "Queue worker failed",
+        description: message,
+      });
+    }
   };
 
   return (
@@ -204,6 +373,129 @@ export default function SmsSenderOps() {
             Approving sender status here enables SMS only when both sender approval and SMS add-on activation are satisfied.
           </AlertDescription>
         </Alert>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Bulk Actions & Queue Worker</CardTitle>
+            <CardDescription>
+              Apply bulk status updates to selected tenants or run queue transitions for pending profiles.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="text-sm font-medium">Bulk Status Update</h4>
+                <Badge variant="outline">{selectedTenantIds.size} selected</Badge>
+              </div>
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label>Target Status</Label>
+                  <Select
+                    value={bulkStatus}
+                    onValueChange={(value) =>
+                      setBulkStatus(value as Exclude<SmsSenderProvisioningStatus, "not_requested">)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MUTABLE_STATUS_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label>Internal Note (optional)</Label>
+                  <Input
+                    value={bulkNote}
+                    onChange={(e) => setBulkNote(e.target.value)}
+                    placeholder="Bulk transition note for audit log..."
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void handleBulkUpdate()}
+                  disabled={updating || selectedTenantIds.size === 0}
+                >
+                  <MaterialIcon name="playlist_add_check" size="sm" className="mr-2" />
+                  Apply Bulk Update
+                </Button>
+              </div>
+            </div>
+
+            <div className="border-t pt-4 space-y-3">
+              <h4 className="text-sm font-medium">Queue Worker (Scaffold)</h4>
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label>Worker Step</Label>
+                  <Select value={workerStep} onValueChange={(value) => setWorkerStep(value as QueueWorkerStep)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {WORKER_STEP_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Max Records</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={200}
+                    value={workerLimit}
+                    onChange={(e) => setWorkerLimit(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Note (optional)</Label>
+                  <Input
+                    value={workerNote}
+                    onChange={(e) => setWorkerNote(e.target.value)}
+                    placeholder="Queue run note..."
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button type="button" onClick={() => void handleRunQueueWorker()} disabled={runningWorker}>
+                  {runningWorker ? (
+                    <>
+                      <MaterialIcon name="progress_activity" size="sm" className="mr-2 animate-spin" />
+                      Running...
+                    </>
+                  ) : (
+                    <>
+                      <MaterialIcon name="play_arrow" size="sm" className="mr-2" />
+                      Run Queue Worker
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {lastWorkerResult && (
+                <Alert>
+                  <MaterialIcon name="sync" size="sm" />
+                  <AlertDescription className="text-sm">
+                    Last run: transitioned {lastWorkerResult.transitioned}/{lastWorkerResult.attempted} (
+                    {lastWorkerResult.from_status} → {lastWorkerResult.to_status})
+                    {lastWorkerResult.failed > 0 ? `, ${lastWorkerResult.failed} failed` : ""}.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -242,6 +534,13 @@ export default function SmsSenderOps() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-[44px]">
+                        <Checkbox
+                          checked={selectAllState}
+                          onCheckedChange={(checked) => toggleSelectAllVisible(checked === true)}
+                          aria-label="Select all visible tenants"
+                        />
+                      </TableHead>
                       <TableHead>Tenant</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Assigned Number</TableHead>
@@ -254,6 +553,15 @@ export default function SmsSenderOps() {
                   <TableBody>
                     {sortedProfiles.map((profile) => (
                       <TableRow key={profile.tenant_id}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedTenantIds.has(profile.tenant_id)}
+                            onCheckedChange={(checked) =>
+                              toggleSelectTenant(profile.tenant_id, checked === true)
+                            }
+                            aria-label={`Select ${profile.company_name || profile.tenant_name}`}
+                          />
+                        </TableCell>
                         <TableCell>
                           <div className="space-y-1">
                             <p className="font-medium">{profile.company_name || profile.tenant_name}</p>
