@@ -356,6 +356,9 @@ export function SmsAddonActivationCard({ settings }: SmsAddonActivationCardProps
               and that our consent workflow is configured.
             </Label>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Reactivating SMS add-on requires terms re-acceptance each time.
+          </p>
 
           {settings?.sms_terms_conditions_url && (
             <Button

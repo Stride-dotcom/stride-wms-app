@@ -118,6 +118,8 @@ It captures high-impact implementation decisions, their status, and supersession
 | DL-2026-02-14-086 | Tenant-facing Twilio setup sections are removed from standard organization settings | SMS Governance | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
 | DL-2026-02-14-087 | Internal comped billing override supports multiple internal tenants | Billing Policy | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
 | DL-2026-02-14-088 | First-month SMS monthly fee proration policy remains open pending pricing research | Billing Policy | draft | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
+| DL-2026-02-14-089 | SMS reactivation requires terms re-acceptance every time | SaaS Compliance | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-090 | Keep terms_version fixed at sms-addon-v1 for now; move configurable versioning to Phase 6 backlog | SaaS Compliance | accepted | Chat Q&A (2026-02-14) | - | - |
 
 ## Detailed imports
 
@@ -858,6 +860,46 @@ Final provider economics and customer pricing policy are still under review.
 
 #### Implementation impact
 - Billing engine must support a configurable first-cycle policy before this decision is locked.
+
+### DL-2026-02-14-089: SMS reactivation requires terms re-acceptance every time
+- Domain: SaaS Compliance
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+Whenever SMS add-on is reactivated, the user must re-accept terms again (no prior acceptance carry-forward).
+
+#### Why
+Per-activation terms acceptance provides stronger consent evidence and avoids ambiguity when activation state changes over time.
+
+#### Implementation impact
+- Keep explicit terms confirmation required in Settings activation flow for each activation/reactivation.
+- Record a fresh acceptance timestamp/version on every activation event.
+- Document this behavior in Billing/Settings UX so admins understand reactivation requirements.
+
+### DL-2026-02-14-090: Keep terms_version fixed at sms-addon-v1 for now; move configurable versioning to Phase 6 backlog
+- Domain: SaaS Compliance
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+For current rollout, keep `terms_version` fixed as `sms-addon-v1`. Add admin-dev configurable terms-version management as a planned Phase 6 follow-up.
+
+#### Why
+This keeps current delivery simple while preserving a clear tracked path for future legal/version governance improvements.
+
+#### Implementation impact
+- No immediate schema or UI change required for version configurability in current phase.
+- Phase 6 backlog must include admin-dev control for terms version value changes.
+- Future implementation should preserve audit continuity across version transitions.
 
 ## Decision entry template (copy/paste)
 

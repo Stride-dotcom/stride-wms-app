@@ -14,6 +14,7 @@ bash scripts/phase5_validate.sh \
   --app-url "https://<your-app-domain>" \
   --stripe-secret-key "sk_test_..." \
   --stripe-webhook-secret "whsec_..." \
+  --db-password "<remote-db-password>" \
   --tenant-id "<tenant-uuid>"
 ```
 
@@ -27,6 +28,7 @@ export PROJECT_REF="<your-supabase-project-ref>"
 export APP_URL="https://<your-app-domain>"
 export STRIPE_SECRET_KEY="sk_test_..."
 export STRIPE_WEBHOOK_SECRET="whsec_..."   # from stripe listen
+export DB_PASSWORD="<remote-db-password>"  # optional but recommended for non-interactive db push
 ```
 
 Optional:
@@ -47,8 +49,11 @@ Expected: on `cursor/locked-decision-ledger-cbef` with latest commits.
 ## 2) Apply database migration first
 
 ```bash
-# If using Supabase CLI in your local/devops environment
-supabase db push
+# Link to project first (required once per environment)
+supabase link --project-ref "$PROJECT_REF"
+
+# Push migrations (non-interactive if DB_PASSWORD is provided)
+supabase db push --linked --password "$DB_PASSWORD"
 ```
 
 If your org applies migrations through CI/CD, run your normal migration pipeline first.
