@@ -27,6 +27,8 @@ Billing visibility decision captured: `DL-2026-02-14-067` (accepted) requires su
 SMS terms audit decision captured: `DL-2026-02-14-068` (accepted) requires version/time/user/ip/user-agent/source capture.
 SMS lifecycle control decision captured: `DL-2026-02-14-069` (accepted) allows tenant-admin self-deactivation in Settings.
 Historical visibility decision captured: `DL-2026-02-14-070` (accepted) keeps SMS billing/report history visible as read-only after deactivation.
+Reactivation consent decision captured: `DL-2026-02-14-089` (accepted) requires terms re-acceptance on every SMS reactivation.
+Terms-version backlog decision captured: `DL-2026-02-14-090` (accepted) keeps `sms-addon-v1` for now and defers configurable versioning to Phase 6.
 
 ## Current implementation snapshot
 
@@ -54,6 +56,7 @@ Confirmed present in repo:
 | subscription.updated resolution fallback customer->subscription | DL-2026-02-14-058 | aligned | `stripe-webhook` now resolves customer first, then subscription fallback |
 | Payment mark RPC identity contract | DL-2026-02-14-057 | aligned | Migration + webhook use `p_stripe_subscription_id` |
 | SMS terms acceptance audit fields | DL-2026-02-14-068 | aligned | New SMS activation migration + RPC capture required terms evidence fields |
+| SMS reactivation terms re-acceptance | DL-2026-02-14-089 | aligned | Settings activation flow requires terms checkbox each activation attempt and records fresh acceptance timestamp |
 | Settings-based SMS activation flow | DL-2026-02-14-066 | aligned | `SmsAddonActivationCard` enforces readiness + explicit terms confirmation |
 | Billing SMS visibility summary | DL-2026-02-14-067 | aligned | Billing page now includes consolidated subscription + SMS add-on summary card |
 | Fail-open gate behavior when row missing | DL-2026-02-14-017/037 | aligned | `rpc_get_my_subscription_gate` returns active state when row not found |
@@ -66,6 +69,14 @@ Confirmed present in repo:
 3. **Run Stripe CLI integration tests** (checkout bootstrap + payment failed -> blocked redirect + payment fixed -> unlock recovery).
 4. **Lock accepted decisions DL-051..DL-062** after deployment verification.
 5. **Log final verification evidence** in `docs/LOCKED_DECISION_IMPLEMENTATION_LOG.md`.
+
+Current cloud-runner blocker:
+- Supabase deploy commands require `SUPABASE_ACCESS_TOKEN` (management API auth), which is not present in this runtime session.
+- Execution can resume immediately once token-based CLI auth is available.
+
+## Deferred to Phase 6 backlog
+
+- `DL-2026-02-14-090`: Admin-dev configurable SMS `terms_version` management (current state remains fixed at `sms-addon-v1`).
 
 Execution checklist:
 - `docs/PHASE5_STRIPE_CLI_VALIDATION_CHECKLIST.md`
@@ -84,5 +95,5 @@ For each unresolved item:
 
 ## Open questions queue (ask serially)
 
-1. Should SMS reactivation require terms re-acceptance every time (current implementation), or only when terms_version changes?
+1. For Phase 6 configurable terms versioning, do we need a draft/publish workflow or a simple single-value update with audit log?
 

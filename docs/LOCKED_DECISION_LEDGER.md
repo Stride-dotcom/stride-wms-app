@@ -1,6 +1,6 @@
 # Locked Decision Ledger
 
-Last updated: 2026-02-14
+Last updated: 2026-02-15
 Owner: Builders / Developers
 Scope: Development artifact only (not an app feature)
 
@@ -118,6 +118,24 @@ It captures high-impact implementation decisions, their status, and supersession
 | DL-2026-02-14-086 | Tenant-facing Twilio setup sections are removed from standard organization settings | SMS Governance | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
 | DL-2026-02-14-087 | Internal comped billing override supports multiple internal tenants | Billing Policy | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
 | DL-2026-02-14-088 | First-month SMS monthly fee proration policy remains open pending pricing research | Billing Policy | draft | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
+| DL-2026-02-14-089 | SMS reactivation requires terms re-acceptance every time | SaaS Compliance | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-090 | Keep terms_version fixed at sms-addon-v1 for now; move configurable versioning to Phase 6 backlog | SaaS Compliance | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-15-001 | Remove Quick Add Bay and standardize Storage Locations terminology | Locations UX | accepted | `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-001` | - | - |
+| DL-2026-02-15-002 | Location types are limited to aisle, bay, shelf, bin, dock, area; zone deferred to separate grouping column | Locations Data Model | accepted | `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-002` | - | - |
+| DL-2026-02-15-003 | Location export and template downloads use .xlsx with synced column definitions | Locations Import/Export | accepted | `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-001`, `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-003` | - | - |
+| DL-2026-02-15-004 | Location import must preserve legacy area inference and archived/inactive status round-trip | Locations Import/Export | accepted | `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-004` | - | - |
+| DL-2026-02-15-005 | Locations capture dimensions and compute square/cubic totals | Locations Capacity | accepted | `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-001` | - | - |
+| DL-2026-02-15-006 | Location detail header must not show duplicate/inconsistent storage icons | Locations UX | accepted | `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-001` | - | - |
+| DL-2026-02-15-007 | Containers are movable sub-locations and container moves must cascade contained item location updates | Containers | accepted | `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-001`, `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-006` | - | - |
+| DL-2026-02-15-008 | Container assignment scan flow is item scan then container scan | ScanHub | accepted | `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-007` | - | - |
+| DL-2026-02-15-009 | Remove parent location hierarchy UI and clear existing parent_location_id data | Locations Data Model | accepted | `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-011`, `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-012` | - | - |
+| DL-2026-02-15-010 | Default inbound/outbound selectors use searchable combobox filtering by code and name | Locations UX | accepted | `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-013` | - | - |
+| DL-2026-02-15-011 | Container management belongs in location-adjacent workflow, not item detail | Containers UX | accepted | `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-014` | - | - |
+| DL-2026-02-15-012 | Stocktake/outbound container bulk-scan shortcuts are controlled by organization preference toggles | Containers/ScanHub | accepted | `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-015` | - | - |
+| DL-2026-02-15-013 | Existing locations must remain editable | Locations UX | accepted | `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-016` | - | - |
+| DL-2026-02-15-014 | Item location rendering for contained items is unresolved (combined string vs separate fields) | Containers Data Model | draft | `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-008` | - | - |
+| DL-2026-02-15-015 | Scanner identity model for containers is unresolved (location type vs separate entity) | Containers Data Model | draft | `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-010` | - | - |
+| DL-2026-02-15-016 | Container code default format/auto-generation details remain draft pending final approval | Containers Data Model | draft | `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-010` | - | - |
 
 ## Detailed imports
 
@@ -858,6 +876,352 @@ Final provider economics and customer pricing policy are still under review.
 
 #### Implementation impact
 - Billing engine must support a configurable first-cycle policy before this decision is locked.
+
+### DL-2026-02-14-089: SMS reactivation requires terms re-acceptance every time
+- Domain: SaaS Compliance
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+Whenever SMS add-on is reactivated, the user must re-accept terms again (no prior acceptance carry-forward).
+
+#### Why
+Per-activation terms acceptance provides stronger consent evidence and avoids ambiguity when activation state changes over time.
+
+#### Implementation impact
+- Keep explicit terms confirmation required in Settings activation flow for each activation/reactivation.
+- Record a fresh acceptance timestamp/version on every activation event.
+- Document this behavior in Billing/Settings UX so admins understand reactivation requirements.
+
+### DL-2026-02-14-090: Keep terms_version fixed at sms-addon-v1 for now; move configurable versioning to Phase 6 backlog
+- Domain: SaaS Compliance
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+For current rollout, keep `terms_version` fixed as `sms-addon-v1`. Add admin-dev configurable terms-version management as a planned Phase 6 follow-up.
+
+#### Why
+This keeps current delivery simple while preserving a clear tracked path for future legal/version governance improvements.
+
+#### Implementation impact
+- No immediate schema or UI change required for version configurability in current phase.
+- Phase 6 backlog must include admin-dev control for terms version value changes.
+- Future implementation should preserve audit continuity across version transitions.
+## Chat Q&A imports (2026-02-15)
+
+### DL-2026-02-15-001: Remove Quick Add Bay and standardize Storage Locations terminology
+- Domain: Locations UX
+- State: accepted
+- Source: `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-001`
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-15
+- Locked at: -
+
+#### Decision
+The locations management UI removes the "Quick Add Bay" section and uses "Storage Locations" terminology for the location list experience.
+
+#### Why
+The existing labels and quick-add pattern were confusing and did not match operational terminology.
+
+#### Implementation impact
+- Remove quick-add bay card/controls from locations settings.
+- Rename list labels/placeholders/actions from bay-specific wording to storage-location wording.
+
+### DL-2026-02-15-002: Location types are limited to aisle, bay, shelf, bin, dock, area; zone deferred to separate grouping column
+- Domain: Locations Data Model
+- State: accepted
+- Source: `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-002`
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-15
+- Locked at: -
+
+#### Decision
+Active location type vocabulary is restricted to `aisle`, `bay`, `shelf`, `bin`, `dock`, and `area`. `zone` is deferred to a future, separate grouping column.
+
+#### Why
+Type semantics must be explicit and stable while keeping zone/grouping concerns separate.
+
+#### Implementation impact
+- Restrict type options for add/edit and import inference outputs.
+- Normalize existing display behavior to use only approved type labels.
+- Exclude `zone` and `release` from forward-looking type selection.
+
+### DL-2026-02-15-003: Location export and template downloads use .xlsx with synced column definitions
+- Domain: Locations Import/Export
+- State: accepted
+- Source: `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-001`, `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-003`
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-15
+- Locked at: -
+
+#### Decision
+Location export and template download outputs are Excel (`.xlsx`) files and must use the same synchronized column-definition source as the locations list.
+
+#### Why
+A single column contract prevents drift between UI columns, export schema, and import templates.
+
+#### Implementation impact
+- Use shared location column definitions for list/table/template/export.
+- Generate `.xlsx` workbook output for both export and template.
+
+### DL-2026-02-15-004: Location import must preserve legacy area inference and archived/inactive status round-trip
+- Domain: Locations Import/Export
+- State: accepted
+- Source: `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-004`
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-15
+- Locked at: -
+
+#### Decision
+Location import must infer legacy area/zone-style identifiers as area-like location type and preserve archived/inactive lifecycle state during export/re-import cycles.
+
+#### Why
+Misclassification to bin and archived-to-active conversion are semantic regressions that alter operations data.
+
+#### Implementation impact
+- Expand import type inference for legacy area/zone patterns.
+- Map exported archived status back to inactive/`is_active=false` on import.
+
+### DL-2026-02-15-005: Locations capture dimensions and compute square/cubic totals
+- Domain: Locations Capacity
+- State: accepted
+- Source: `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-001`
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-15
+- Locked at: -
+
+#### Decision
+Locations must support entering dimensions (length/width/height) so square footage and cubic footage totals can be computed and displayed.
+
+#### Why
+Capacity totals are shown in the list and require an explicit, user-maintainable input path.
+
+#### Implementation impact
+- Add/edit forms capture dimensions.
+- Calculate and persist square/cubic totals from dimensions when needed.
+- Keep list columns aligned with stored totals.
+
+### DL-2026-02-15-006: Location detail header must not show duplicate/inconsistent storage icons
+- Domain: Locations UX
+- State: accepted
+- Source: `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-001`
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-15
+- Locked at: -
+
+#### Decision
+Location detail header should show one consistent location-type indicator and remove duplicate/conflicting storage icon/badge rendering.
+
+#### Why
+Duplicated iconography creates ambiguity and visual inconsistency in location details.
+
+#### Implementation impact
+- Consolidate header type/icon/badge rendering to one canonical source.
+
+### DL-2026-02-15-007: Containers are movable sub-locations and container moves must cascade contained item location updates
+- Domain: Containers
+- State: accepted
+- Source: `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-001`, `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-006`
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-15
+- Locked at: -
+
+#### Decision
+Containers are treated operationally as movable storage sub-locations; when a container location changes, all contained item locations must update to reflect the container's new parent location.
+
+#### Why
+Warehouse teams need bulk movement without manual per-item relocation work while preserving item-level traceability.
+
+#### Implementation impact
+- Maintain explicit container-to-parent-location linkage.
+- Implement/keep atomic container move behavior that cascades item location updates.
+
+### DL-2026-02-15-008: Container assignment scan flow is item scan then container scan
+- Domain: ScanHub
+- State: accepted
+- Source: `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-007`
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-15
+- Locked at: -
+
+#### Decision
+For assigning items into containers via scanners, the operational sequence is scan item code first, then scan container code.
+
+#### Why
+This mirrors physical workflow and provides a clear move action mental model for users.
+
+#### Implementation impact
+- ScanHub state machine must support item-then-container assignment flow.
+- Assignment action records container linkage and updates location context.
+
+### DL-2026-02-15-009: Remove parent location hierarchy UI and clear existing parent_location_id data
+- Domain: Locations Data Model
+- State: accepted
+- Source: `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-011`, `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-012`
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-15
+- Locked at: -
+
+#### Decision
+Remove parent-location selection from location add/edit UI and clear existing `parent_location_id` values.
+
+#### Why
+Parent hierarchy is unused and creates confusion; user explicitly approved clearing existing values.
+
+#### Implementation impact
+- Remove parent-location input/control from location forms.
+- Run data cleanup to null/reset existing `parent_location_id` values.
+
+### DL-2026-02-15-010: Default inbound/outbound selectors use searchable combobox filtering by code and name
+- Domain: Locations UX
+- State: accepted
+- Source: `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-013`
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-15
+- Locked at: -
+
+#### Decision
+Default inbound/outbound location selectors use searchable combobox behavior: open full list on click, then filter as user types by both location code and location name.
+
+#### Why
+Large location lists require fast lookup by either known code or remembered name.
+
+#### Implementation impact
+- Replace simple select dropdowns with combobox/autocomplete controls.
+- Ensure filter keys include both `code` and `name`.
+
+### DL-2026-02-15-011: Container management belongs in location-adjacent workflow, not item detail
+- Domain: Containers UX
+- State: accepted
+- Source: `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-014`
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-15
+- Locked at: -
+
+#### Decision
+Container creation/management belongs in a location-adjacent workflow and should not be nested inside item-detail views.
+
+#### Why
+Containers are shared storage artifacts and should be managed where physical location operations occur.
+
+#### Implementation impact
+- Move container management entry points out of item detail context.
+- Add/expand container management surface under locations workflow.
+
+### DL-2026-02-15-012: Stocktake/outbound container bulk-scan shortcuts are controlled by organization preference toggles
+- Domain: Containers/ScanHub
+- State: accepted
+- Source: `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-015`
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-15
+- Locked at: -
+
+#### Decision
+Container scanning as a bulk shortcut in stocktake and outbound workflows is controlled by organization preferences.
+
+#### Why
+Tenants need operational flexibility and controlled rollout for high-impact bulk actions.
+
+#### Implementation impact
+- Add org-level toggle(s) controlling container bulk shortcut behaviors.
+- Gate stocktake/outbound scan handlers behind preference checks.
+
+### DL-2026-02-15-013: Existing locations must remain editable
+- Domain: Locations UX
+- State: accepted
+- Source: `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-016`
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-15
+- Locked at: -
+
+#### Decision
+Existing location records must support edit operations.
+
+#### Why
+Warehouse teams need to correct or update location metadata over time.
+
+#### Implementation impact
+- Keep/enable edit path in locations list/detail flows.
+- Ensure update validation and persistence match create behavior.
+
+### DL-2026-02-15-014: Item location rendering for contained items is unresolved (combined string vs separate fields)
+- Domain: Containers Data Model
+- State: draft
+- Source: `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-008`
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-15
+- Locked at: -
+
+#### Decision
+Pending final confirmation: represent contained-item location either as a combined display string (for example `A1.2E (CNT-123)`) or via separate parent-location/container fields with composed display.
+
+#### Why
+Both representations were discussed, but no explicit final selection was approved.
+
+#### Implementation impact
+- Keep display/data-model decision open until explicitly confirmed.
+- Avoid locking downstream schema/UI assumptions to one representation.
+
+### DL-2026-02-15-015: Scanner identity model for containers is unresolved (location type vs separate entity)
+- Domain: Containers Data Model
+- State: draft
+- Source: `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-010`
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-15
+- Locked at: -
+
+#### Decision
+Pending final confirmation: scanner differentiation should either treat containers as `locations.type=container` or keep containers as a separate entity recognized by scanner logic.
+
+#### Why
+The proposal requested `location type=container`, but final explicit approval of this model was not captured.
+
+#### Implementation impact
+- Keep scanner parser and data-model contracts flexible until decision is finalized.
+- Do not lock migration strategy for container identity yet.
+
+### DL-2026-02-15-016: Container code default format/auto-generation details remain draft pending final approval
+- Domain: Containers Data Model
+- State: draft
+- Source: `docs/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15.md#qa-2026-02-15-010`
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-15
+- Locked at: -
+
+#### Decision
+Pending final confirmation: new containers should auto-generate code in a `CNT-#####` style while allowing manual override/edit.
+
+#### Why
+Auto-generated, editable container codes were proposed but not explicitly finalized in a confirmation response.
+
+#### Implementation impact
+- Keep generator/validation behavior in draft status until approval.
+- Defer locking code-format policy and uniqueness constraints.
 
 ## Decision entry template (copy/paste)
 

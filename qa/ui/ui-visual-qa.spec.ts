@@ -21,6 +21,7 @@ const QA_CLIENT_PASSWORD = process.env.QA_CLIENT_PASSWORD || '';
 const APP_BASE_URL = process.env.APP_BASE_URL || 'http://localhost:5173';
 const DEEP_MODE = process.env.QA_DEEP_MODE === 'true';
 const DEEP_TAGS_FILTER = process.env.QA_DEEP_TAGS ? process.env.QA_DEEP_TAGS.split(',').map(t => t.trim()) : [];
+const ROUTES_INPUT = process.env.ROUTES?.trim() || 'all';
 
 // Buffer check constants
 const MIN_SCROLL_BUFFER_PX = 80;
@@ -41,6 +42,95 @@ function parseRequestedViewports(): Viewport[] {
 }
 
 const VIEWPORTS = parseRequestedViewports();
+
+function normalizeRoutePath(route: string): string {
+  const withoutQuery = route.split('?')[0].split('#')[0].trim();
+  if (!withoutQuery) return '/';
+  const withLeadingSlash = withoutQuery.startsWith('/') ? withoutQuery : `/${withoutQuery}`;
+  if (withLeadingSlash.length > 1 && withLeadingSlash.endsWith('/')) {
+    return withLeadingSlash.slice(0, -1);
+  }
+  return withLeadingSlash;
+}
+
+function parseRequestedRoutes(): string[] | null {
+  if (!ROUTES_INPUT || ROUTES_INPUT.toLowerCase() === 'all') return null;
+  const parsed = ROUTES_INPUT
+    .split(',')
+    .map((r) => normalizeRoutePath(r))
+    .filter(Boolean);
+  return parsed.length > 0 ? parsed : null;
+}
+
+function looksLikeDynamicIdSegment(segment: string): boolean {
+  if (!segment) return false;
+  if (segment.startsWith(':')) return true;
+  if (/^\d+$/.test(segment)) return true;
+  // UUID (common for Supabase IDs)
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(segment)) return true;
+  // Generic token with digits (e.g. codes like ABC123, ulids, etc.)
+  if (segment.length >= 5 && /\d/.test(segment)) return true;
+  return false;
+}
+
+function routeTokenMatchesTour(routeToken: string, tourRoute: string): boolean {
+  const token = normalizeRoutePath(routeToken);
+  const tour = normalizeRoutePath(tourRoute);
+
+  if (token === tour) return true;
+  if (tour.startsWith(`${token}/`) || token.startsWith(`${tour}/`)) return true;
+
+  if (tour.includes(':')) {
+    const tokenParts = token.split('/').filter(Boolean);
+    const tourParts = tour.split('/').filter(Boolean);
+    if (tokenParts.length === tourParts.length) {
+      const matches = tourParts.every((part, idx) => {
+        const tokenPart = tokenParts[idx] || '';
+        if (part.startsWith(':')) return looksLikeDynamicIdSegment(tokenPart);
+        return part === tokenPart;
+      });
+      if (matches) return true;
+    }
+  }
+
+  return false;
+}
+
+function filterToursByRoutes<T extends { route: string }>(tours: T[], routeFilter: string[] | null): T[] {
+  if (!routeFilter || routeFilter.length === 0) return tours;
+  return tours.filter((tour) => routeFilter.some((token) => routeTokenMatchesTour(token, tour.route)));
+}
+
+const ROUTE_FILTER = parseRequestedRoutes();
+const SELECTED_PAGE_TOURS = filterToursByRoutes(pageTours, ROUTE_FILTER);
+
+function getSelectedDeepTours(): PageTour[] {
+  const orderedDeepTours = getDeepToursOrdered();
+  const tagScopedTours = DEEP_TAGS_FILTER.length > 0
+    ? orderedDeepTours.filter((t) => t.tags?.some((tag) => DEEP_TAGS_FILTER.includes(tag)))
+    : orderedDeepTours;
+
+  const routeScopedTours = filterToursByRoutes(tagScopedTours, ROUTE_FILTER);
+  const selectedNames = new Set(routeScopedTours.map((t) => t.name));
+  const tourByName = new Map(orderedDeepTours.map((t) => [t.name, t]));
+
+  // Always include deep-tour dependencies, even if they don't match route filters.
+  const addDependencies = (tour: PageTour) => {
+    for (const depName of tour.dependsOn || []) {
+      if (selectedNames.has(depName)) continue;
+      const depTour = tourByName.get(depName);
+      if (!depTour) continue;
+      selectedNames.add(depName);
+      addDependencies(depTour);
+    }
+  };
+
+  for (const tour of routeScopedTours) {
+    addDependencies(tour);
+  }
+
+  return orderedDeepTours.filter((t) => selectedNames.has(t.name));
+}
 
 // ============================================================
 // TYPES
@@ -1272,8 +1362,11 @@ async function saveResultsToSupabase(results: TestResult[], runId: string, cover
 }
 
 function generateCoverageReport(): TourCoverageReport {
-  const allRoutes = getAllRoutes();
-  const allTours = [...pageTours, ...deepTours];
+  const selectedDeepTours = getSelectedDeepTours();
+  const allTours = [...SELECTED_PAGE_TOURS, ...selectedDeepTours];
+  const allRoutes = ROUTE_FILTER
+    ? getAllRoutes().filter((r) => ROUTE_FILTER.some((token) => routeTokenMatchesTour(token, r)))
+    : getAllRoutes();
   const routesWithTours = [...new Set(allTours.map(t => t.route))];
   const routesWithoutTours = allRoutes.filter(r => !routesWithTours.includes(r));
 
@@ -1288,7 +1381,7 @@ function generateCoverageReport(): TourCoverageReport {
     routesWithoutTours,
     missingTestIds: missingTestIdsList,
     skippedSteps,
-    coveragePercent: Math.round((routesWithTours.length / allRoutes.length) * 100),
+    coveragePercent: allRoutes.length === 0 ? 0 : Math.round((routesWithTours.length / allRoutes.length) * 100),
     p0Count: allTours.filter(t => t.priority === 'P0').length,
     p1Count: allTours.filter(t => t.priority === 'P1').length,
     p2Count: allTours.filter(t => t.priority === 'P2').length,
@@ -1345,8 +1438,8 @@ test.describe('UI Visual QA', () => {
     await clientContext?.close();
   });
 
-  // Generate tests for each tour; viewport is derived from Playwright project
-  for (const tour of pageTours) {
+  // Generate tests for each selected tour; viewport is derived from Playwright project
+  for (const tour of SELECTED_PAGE_TOURS) {
     test(`[${tour.priority}] ${tour.name}`, async ({}, testInfo) => {
       const viewport = resolveProjectViewport(testInfo.project.name);
       const context = tour.roleContext === 'client' ? clientContext : adminContext;
@@ -1369,26 +1462,61 @@ test.describe('UI Visual QA', () => {
     });
   }
 
-  // Test routes without tours (screenshot only)
-  const routesWithTours = new Set(pageTours.map(t => t.route));
-  const routesWithoutTours = getAllRoutes().filter(r => !routesWithTours.has(r));
+  // Route-only screenshots run only for "all routes" mode to keep targeted runs fast.
+  if (!ROUTE_FILTER) {
+    const routesWithTours = new Set(SELECTED_PAGE_TOURS.map((t) => t.route));
+    const routesWithoutTours = getAllRoutes().filter((r) => !routesWithTours.has(r));
 
-  for (const route of routesWithoutTours.slice(0, 10)) {
-    test(`[P2] Route-only: ${route}`, async ({}, testInfo) => {
-      const viewport = resolveProjectViewport(testInfo.project.name);
-      const page = await adminContext.newPage();
+    for (const route of routesWithoutTours.slice(0, 10)) {
+      test(`[P2] Route-only: ${route}`, async ({}, testInfo) => {
+        const viewport = resolveProjectViewport(testInfo.project.name);
+        const page = await adminContext.newPage();
 
-      try {
-        const result = await testRoute(page, route, viewport);
-        testResults.push(result);
+        try {
+          const result = await testRoute(page, route, viewport);
+          testResults.push(result);
 
-        if (result.status === 'fail') {
-          expect.soft(result.error_message).toBeUndefined();
+          if (result.status === 'fail') {
+            expect.soft(result.error_message).toBeUndefined();
+          }
+        } finally {
+          await page.close();
         }
-      } finally {
-        await page.close();
+      });
+    }
+  } else {
+    // If a ROUTES filter yields zero tours (and deep is disabled or has no matches),
+    // ensure we still register runnable tests rather than failing with "No tests found".
+    const selectedDeepTours = getSelectedDeepTours();
+    const hasAnyTours = SELECTED_PAGE_TOURS.length > 0 || selectedDeepTours.length > 0;
+
+    if (!hasAnyTours) {
+      const scopedRoutes = getAllRoutes().filter((r) => ROUTE_FILTER.some((token) => routeTokenMatchesTour(token, r)));
+
+      if (scopedRoutes.length === 0) {
+        test('[P2] ROUTES filter: no matching tours or routes', async () => {
+          test.skip(true, 'ROUTES filter did not match any defined tours or known routes.');
+        });
+      } else {
+        for (const route of scopedRoutes.slice(0, 10)) {
+          test(`[P2] Route-only (scoped): ${route}`, async (_fixtures, testInfo) => {
+            const viewport = resolveProjectViewport(testInfo.project.name);
+            const page = await adminContext.newPage();
+
+            try {
+              const result = await testRoute(page, route, viewport);
+              testResults.push(result);
+
+              if (result.status === 'fail') {
+                expect.soft(result.error_message).toBeUndefined();
+              }
+            } finally {
+              await page.close();
+            }
+          });
+        }
       }
-    });
+    }
   }
 });
 
@@ -1473,10 +1601,7 @@ test.describe('Deep E2E QA', () => {
   });
 
   // Generate deep tests in dependency order, desktop only
-  const orderedDeepTours = getDeepToursOrdered();
-  const filteredDeepTours = DEEP_TAGS_FILTER.length > 0
-    ? orderedDeepTours.filter(t => t.tags?.some(tag => DEEP_TAGS_FILTER.includes(tag)))
-    : orderedDeepTours;
+  const filteredDeepTours = getSelectedDeepTours();
 
   for (const tour of filteredDeepTours) {
     test(`[DEEP][${tour.priority}] ${tour.name}`, async () => {

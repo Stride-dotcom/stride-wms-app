@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -92,6 +92,7 @@ export function TaskDialog({
   const [accountItems, setAccountItems] = useState<InventoryItem[]>([]);
   const [itemSearchQuery, setItemSearchQuery] = useState('');
   const [loadingItems, setLoadingItems] = useState(false);
+  const [itemDropdownOpen, setItemDropdownOpen] = useState(false);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [validationMessage, setValidationMessage] = useState('');
 
@@ -253,17 +254,19 @@ export function TaskDialog({
   };
 
   const fetchAccountItems = async (accountId: string) => {
+    console.log('[TaskDialog] fetchAccountItems called for account:', accountId);
     setLoadingItems(true);
     try {
       const { data, error } = await (supabase
         .from('items') as any)
         .select('id, item_code, description, vendor, sidemark, client_account, account_id, warehouse_id')
         .eq('account_id', accountId)
-        // Items status is now 'active' (legacy 'in_stock' was migrated)
         .neq('status', 'released')
         .neq('status', 'disposed')
         .is('deleted_at', null)
         .order('item_code');
+
+      console.log('[TaskDialog] fetchAccountItems result:', { count: data?.length, error });
 
       if (error) throw error;
 
@@ -627,65 +630,79 @@ export function TaskDialog({
             {!isFromInventory && formData.account_id !== 'none' && (
               <div className="space-y-3">
                 <Label>Select Items</Label>
-                <div className="relative">
-                  <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by item code, description, vendor, sidemark..."
-                    value={itemSearchQuery}
-                    onChange={(e) => setItemSearchQuery(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-                
-                {loadingItems ? (
-                  <div className="flex items-center justify-center py-4">
-                    <MaterialIcon name="progress_activity" size="md" className="animate-spin text-muted-foreground" />
-                  </div>
-                ) : filteredItems.length > 0 ? (
-                  <div className="border rounded-md max-h-48 overflow-y-auto">
-                    {filteredItems.map(item => {
-                      const isSelected = selectedItems.some(i => i.id === item.id);
-                      return (
-                        <div
-                          key={item.id}
-                          className="flex items-center gap-3 p-2 hover:bg-muted/50 cursor-pointer border-b last:border-b-0"
-                          onClick={() => toggleItemSelection(item)}
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              toggleItemSelection(item);
-                            }
-                          }}
-                        >
-                          <div onClick={(e) => e.stopPropagation()}>
-                            <Checkbox
-                              checked={isSelected}
-                              onCheckedChange={() => toggleItemSelection(item)}
-                            />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-sm">{item.item_code}</div>
-                            <div className="text-xs text-muted-foreground truncate">
-                              {[item.description, item.vendor, item.sidemark]
-                                .filter(Boolean)
-                                .join(' • ')}
-                            </div>
-                          </div>
+                <Popover open={itemDropdownOpen} onOpenChange={setItemDropdownOpen}>
+                  <PopoverAnchor asChild>
+                    <div className="relative">
+                      <MaterialIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        placeholder="Search by item code, description, vendor, sidemark..."
+                        value={itemSearchQuery}
+                        onChange={(e) => {
+                          setItemSearchQuery(e.target.value);
+                          if (!itemDropdownOpen) setItemDropdownOpen(true);
+                        }}
+                        onFocus={() => setItemDropdownOpen(true)}
+                        className="pl-9"
+                      />
+                    </div>
+                  </PopoverAnchor>
+                  <PopoverContent
+                    className="w-[--radix-popover-trigger-width] p-0 z-50 bg-popover border shadow-md"
+                    align="start"
+                    onOpenAutoFocus={(e) => e.preventDefault()}
+                    onInteractOutside={(e) => {
+                      // Allow clicking inside the anchor input without closing
+                      const target = e.target as HTMLElement;
+                      if (target.closest('[data-item-search-anchor]')) {
+                        e.preventDefault();
+                      }
+                    }}
+                  >
+                    <div className="max-h-60 overflow-y-auto">
+                      {loadingItems ? (
+                        <div className="flex items-center justify-center py-4">
+                          <MaterialIcon name="progress_activity" size="md" className="animate-spin text-muted-foreground" />
                         </div>
-                      );
-                    })}
-                  </div>
-                ) : accountItems.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    No items found for this account
-                  </p>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    No items match your search
-                  </p>
-                )}
+                      ) : filteredItems.length > 0 ? (
+                        filteredItems.slice(0, 20).map(item => {
+                          const isSelected = selectedItems.some(i => i.id === item.id);
+                          return (
+                            <div
+                              key={item.id}
+                              className="flex items-center gap-3 p-2 hover:bg-muted/50 cursor-pointer border-b last:border-b-0"
+                              onClick={() => toggleItemSelection(item)}
+                              role="button"
+                              tabIndex={0}
+                            >
+                              <div onClick={(e) => e.stopPropagation()}>
+                                <Checkbox
+                                  checked={isSelected}
+                                  onCheckedChange={() => toggleItemSelection(item)}
+                                />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-sm">{item.item_code}</div>
+                                <div className="text-xs text-muted-foreground truncate">
+                                  {[item.description, item.vendor, item.sidemark]
+                                    .filter(Boolean)
+                                    .join(' • ')}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : accountItems.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          No items found for this account
+                        </p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          No items match your search
+                        </p>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
             )}
 

@@ -4,38 +4,61 @@ Use these prompts with any coding builder (Cursor agent, Claude, ChatGPT code ag
 
 ---
 
-## Prompt A: Import a new Q&A or plan document into the ledger
+## Prompt A: Import current chat/document into the ledger (with topic-named source + backup copy)
 
 ```md
-Update the locked decision ledger using this new source document:
+Update the locked decision ledger from this chat or source document:
 
-SOURCE_PATH: <path to PDF/markdown/transcript>
+CHAT_TOPIC: <short topic title, e.g., "Locations & Containers">
+TOPIC_SLUG: <UPPER_SNAKE_OR_SLUG, e.g., LOCATIONS_CONTAINERS>
+SOURCE_MODE: <current_chat|file_path>
+SOURCE_PATH: <path to PDF/markdown/transcript if SOURCE_MODE=file_path>
 LEDGER_PATH: docs/LOCKED_DECISION_LEDGER.md
 LOG_PATH: docs/LOCKED_DECISION_IMPLEMENTATION_LOG.md
 TODAY: <YYYY-MM-DD>
+ACTOR: <builder/agent name>
 
 Requirements:
-1) Read SOURCE_PATH fully.
-2) Extract explicit decisions only (no guesses). Group duplicates.
-3) Add new decision entries to LEDGER_PATH using IDs DL-<date>-<nnn>.
-4) Set state:
+0) Create a dated backup copy of the ledger before making changes:
+   - docs/LOCKED_DECISION_LEDGER_COPY_<TOPIC_SLUG>_<TODAY>.md
+1) Create a topic-named source artifact for this import:
+   - docs/LOCKED_DECISION_SOURCE_<TOPIC_SLUG>_<TODAY>.md
+   - If SOURCE_MODE=current_chat: extract Q&A from the current chat into this file.
+   - If SOURCE_MODE=file_path: read SOURCE_PATH fully and normalize key Q&A/decision excerpts into this file.
+2) Read the source artifact fully and extract explicit decisions only (no guesses).
+3) Group duplicates and map each extracted Q&A item to:
+   - existing decision ID (if already covered), or
+   - new decision ID to add.
+4) Add only net-new decisions to LEDGER_PATH using IDs DL-<date>-<nnn> (continue sequence safely).
+5) Set state:
    - draft if uncertain or conflicting,
    - accepted if clear and approved in source,
-   - locked only if source is marked authoritative/final.
-5) For each new decision, include:
+   - locked only if source is explicitly authoritative/final.
+6) For each new decision, include:
    - title, domain, state, source, supersedes, created date
    - decision statement
    - why/rationale
    - implementation impact
-6) Preserve immutability:
+7) Preserve immutability:
    - Do not rewrite existing locked decision bodies.
    - If a locked decision changes, create a new decision with supersedes=<old ID>.
-7) Append implementation events in LOG_PATH with event type `planned` for new accepted/locked decisions.
-8) Return a summary with:
+8) Append implementation events in LOG_PATH with event type `planned` for new accepted/locked decisions.
+9) Add an import coverage summary in your response:
+   - source artifact path
+   - backup copy path
+   - Q&A items extracted
+   - mapped to existing decisions
+   - new decisions added
+   - unresolved/open questions (draft decisions)
+10) For multi-chat continuity:
+   - Never overwrite prior source artifacts.
+   - Reuse TOPIC_SLUG for the same workstream so files are easy to group.
+   - Carry unresolved draft decisions forward until explicitly resolved.
+11) Return a summary with:
    - decisions added
    - decisions superseded
    - unresolved conflicts/questions
-9) Commit and push with message:
+12) Commit and push with message:
    "docs: import decisions from <source name> into locked ledger"
 ```
 
@@ -91,7 +114,8 @@ Rules:
 
 ## Quick usage pattern
 
-1. Run Prompt A after each major Q&A/planning artifact.
-2. Run Prompt B whenever build progress changes.
-3. Run Prompt C at milestone close when decisions are final.
+1. Pick a stable TOPIC_SLUG for the workstream (example: `LOCATIONS_CONTAINERS`) and reuse it across related chats.
+2. Run Prompt A after each major Q&A/planning artifact (or at end of each chat) to avoid decision loss.
+3. Run Prompt B whenever build progress changes.
+4. Run Prompt C at milestone close when decisions are final.
 

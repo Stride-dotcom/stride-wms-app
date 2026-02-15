@@ -36,6 +36,12 @@ import { useLocationCapacity } from '@/hooks/useLocationCapacity';
 import { useOrgPreferences } from '@/hooks/useOrgPreferences';
 import { useContainerActions } from '@/hooks/useContainerActions';
 import type { Database } from '@/integrations/supabase/types';
+import {
+  DISPLAY_LOCATION_TYPE_BADGE_COLORS,
+  getLocationTypeLabel,
+  normalizeLocationType,
+  parseDisplayLocationType,
+} from '@/lib/locationTypeUtils';
 
 type LocationRow = Database['public']['Tables']['locations']['Row'];
 
@@ -165,20 +171,22 @@ export default function LocationDetail() {
   };
 
   const getTypeBadge = (type: string) => {
-    const colors: Record<string, string> = {
-      zone: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
-      aisle: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-      bay: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-      bin: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-      shelf: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
-      dock: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
-      release: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-    };
+    const normalizedType = normalizeLocationType(type);
     return (
-      <Badge variant="outline" className={colors[type] || ''}>
-        {type.charAt(0).toUpperCase() + type.slice(1)}
+      <Badge variant="outline" className={DISPLAY_LOCATION_TYPE_BADGE_COLORS[normalizedType]}>
+        {getLocationTypeLabel(type)}
       </Badge>
     );
+  };
+
+  const getDisplayType = (value: LocationRow): string => {
+    if (parseDisplayLocationType(value.type)) {
+      return value.type;
+    }
+    if (parseDisplayLocationType(value.location_type)) {
+      return value.location_type as string;
+    }
+    return value.type;
   };
 
   const formatLocationDisplay = (containerCode: string | null) => {
@@ -242,11 +250,8 @@ export default function LocationDetail() {
               <h1 className="text-2xl font-bold">
                 <code className="bg-muted px-2 py-0.5 rounded">{location.code}</code>
               </h1>
-              {getTypeBadge(location.type)}
+              {getTypeBadge(getDisplayType(location))}
               <StatusIndicator status={location.status} size="sm" />
-              {location.location_type && (
-                <Badge variant="secondary">{location.location_type}</Badge>
-              )}
             </div>
             {location.name && (
               <p className="text-muted-foreground mt-1">{location.name}</p>
