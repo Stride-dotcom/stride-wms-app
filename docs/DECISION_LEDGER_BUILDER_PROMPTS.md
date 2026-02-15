@@ -6,6 +6,35 @@ Master control reference: `docs/ledger/MASTER_LEDGER.md`
 
 ---
 
+## Prompt 0 (required preflight): baseline sync + scaffold guard
+
+```md
+Run this preflight before any ledger work in this branch.
+
+Requirements:
+1) Verify baseline files exist:
+   - docs/ledger/MASTER_LEDGER.md
+   - docs/ledger/README.md
+   - docs/ledger/packets/PACKET_TEMPLATE.md
+   - scripts/ledger/apply-packets.mjs
+   - docs/DECISION_LEDGER_BUILDER_PROMPTS.md
+2) If any are missing, sync branch from main first:
+   - git fetch origin main
+   - git rebase origin/main
+   (or git pull origin main if rebase is unavailable in this runtime)
+3) Re-check the required files.
+4) If still missing after sync, stop and report the blocker.
+5) Do NOT create alternate/custom ledger scaffolding in this branch.
+6) Validate tooling:
+   - npm run ledger:apply-packets:dry-run
+7) Return:
+   - sync status
+   - required-file check result
+   - dry-run result
+```
+
+---
+
 ## Prompt A (chat/source capture): create source + pending packet only
 
 ```md
@@ -25,6 +54,9 @@ SOURCE_DIR: docs/ledger/sources
 PENDING_PACKET_DIR: docs/ledger/packets/pending
 
 Requirements:
+0) Preflight gate:
+   - Run Prompt 0 first in this branch.
+   - If baseline files are missing, sync from main. Do not bootstrap custom ledger files.
 1) Create a source artifact:
    - docs/ledger/sources/LOCKED_DECISION_SOURCE_<TOPIC_SLUG>_<TODAY>_chat-<CHAT_ID>.md
    - If SOURCE_MODE=current_chat: extract Q&A from the active chat.
@@ -147,9 +179,10 @@ Requirements:
 
 ## Quick usage pattern
 
-1. Reuse a stable `TOPIC_SLUG` per workstream.
-2. For every chat, run Prompt A (and Prompt B if progress-only updates).
-3. Keep chat branches packet-only to prevent merge conflicts.
-4. Run Prompt C in integration flow to update master once.
-5. Use Prompt D at milestone close to lock finalized decisions.
+1. Run Prompt 0 at the start of each chat branch.
+2. Reuse a stable `TOPIC_SLUG` per workstream.
+3. For every chat, run Prompt A (and Prompt B if progress-only updates).
+4. Keep chat branches packet-only to prevent merge conflicts.
+5. Run Prompt C in integration flow to update master once.
+6. Use Prompt D at milestone close to lock finalized decisions.
 
