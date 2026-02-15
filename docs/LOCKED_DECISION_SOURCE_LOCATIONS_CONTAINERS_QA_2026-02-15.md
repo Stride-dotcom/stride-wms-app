@@ -1,8 +1,9 @@
-# Locked Decision Source — Chat Q&A Import (2026-02-15)
+# Locked Decision Source — Locations & Containers Chat Q&A (2026-02-15)
 
 ## Source metadata
 
 - Source type: Chat transcript (this session)
+- Subject: Locations page repair, location types/capacity/import-export, and container workflow/scanning
 - Compiled by: builder
 - Compiled on: 2026-02-15
 - Purpose: Normalize explicit Q&A decisions for ledger import
