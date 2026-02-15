@@ -1,6 +1,6 @@
 # Locked Decision Implementation Log (Append-Only)
 
-Last updated: 2026-02-14
+Last updated: 2026-02-15
 
 ## Rules
 
@@ -85,6 +85,19 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-063 | 2026-02-14 | DL-2026-02-14-068,DL-2026-02-14-069 | verified | `npx tsc --noEmit`, `npm run build` (post commit `ca2f1da`) | builder | Static validation passed after deactivation guard patch; no frontend regressions detected from migration-only function update. |
 | DLE-2026-02-14-064 | 2026-02-14 | DL-2026-02-14-066,DL-2026-02-14-068 | completed | Added `supabase/migrations/20260215023000_sms_addon_activation_readiness_guard.sql` | builder | Added server-side activation readiness guard so direct RPC calls cannot bypass required SMS onboarding fields (sender, legal URLs, compliance copy, use-case/sample, sms_enabled). |
 | DLE-2026-02-14-065 | 2026-02-14 | DL-2026-02-14-066,DL-2026-02-14-068 | verified | `npx tsc --noEmit`, `npm run build` (post commit `0fd5e83`) | builder | Static validation passed after activation readiness guard patch; migration-only function update introduced no frontend/type regressions. |
+| DLE-2026-02-15-001 | 2026-02-15 | DL-2026-02-15-001 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` from chat source import | builder | Captured terminology + quick-add removal UX decision from chat Q&A source. |
+| DLE-2026-02-15-002 | 2026-02-15 | DL-2026-02-15-002 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` from chat source import | builder | Captured standardized location type set with zone deferred as separate grouping column. |
+| DLE-2026-02-15-003 | 2026-02-15 | DL-2026-02-15-003 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` from chat source import | builder | Captured .xlsx export/template + synced column contract decision. |
+| DLE-2026-02-15-004 | 2026-02-15 | DL-2026-02-15-004 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` from chat source import | builder | Captured legacy area inference and archived round-trip import requirements. |
+| DLE-2026-02-15-005 | 2026-02-15 | DL-2026-02-15-005 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` from chat source import | builder | Captured dimension-driven square/cubic capacity requirement for locations. |
+| DLE-2026-02-15-006 | 2026-02-15 | DL-2026-02-15-006 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` from chat source import | builder | Captured location-detail header de-duplication of storage indicator. |
+| DLE-2026-02-15-007 | 2026-02-15 | DL-2026-02-15-007 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` from chat source import | builder | Captured container movement cascade requirement for contained item locations. |
+| DLE-2026-02-15-008 | 2026-02-15 | DL-2026-02-15-008 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` from chat source import | builder | Captured scanner sequence for containment assignment (item then container). |
+| DLE-2026-02-15-009 | 2026-02-15 | DL-2026-02-15-009 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` from chat source import | builder | Captured parent-location UI removal and existing data cleanup requirement. |
+| DLE-2026-02-15-010 | 2026-02-15 | DL-2026-02-15-010 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` from chat source import | builder | Captured searchable combobox behavior for default inbound/outbound selectors. |
+| DLE-2026-02-15-011 | 2026-02-15 | DL-2026-02-15-011 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` from chat source import | builder | Captured container management placement outside item-detail context. |
+| DLE-2026-02-15-012 | 2026-02-15 | DL-2026-02-15-012 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` from chat source import | builder | Captured organization-toggle control for stocktake/outbound container bulk scans. |
+| DLE-2026-02-15-013 | 2026-02-15 | DL-2026-02-15-013 | planned | Updated `docs/LOCKED_DECISION_LEDGER.md` from chat source import | builder | Captured requirement that location records remain editable. |
 
 ## Event template (copy/paste)
 
