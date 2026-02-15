@@ -63,6 +63,7 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-041 | 2026-02-14 | DL-2026-02-14-070 | verified | `npx tsc --noEmit`, `npm run build` (post commit `e6bc478`) | builder | Local static verification passed for read-only history decision capture and Billing read-only visibility messaging update. |
 | DLE-2026-02-14-042 | 2026-02-14 | DL-2026-02-14-071 | completed | Updated `docs/LOCKED_DECISION_LEDGER.md`, `docs/PHASE5_SAAS_CONTINUATION_QA_PLAN.md`, `src/components/settings/SmsAddonActivationCard.tsx` | builder | Captured accepted re-acceptance policy and clarified in Settings UI that terms must be re-accepted for each reactivation. |
 | DLE-2026-02-14-043 | 2026-02-14 | DL-2026-02-14-071 | verified | `npx tsc --noEmit`, `npm run build` (post commit `78d48a1`) | builder | Local static verification passed after documenting and surfacing reactivation terms re-acceptance requirement. |
+| DLE-2026-02-14-044 | 2026-02-14 | DL-2026-02-14-072 | completed | Updated `docs/LOCKED_DECISION_LEDGER.md`, `docs/PHASE5_SAAS_CONTINUATION_QA_PLAN.md` | builder | Captured explicit reminder that configurable SMS terms-version control is deferred to Phase 6 while keeping current value fixed at `sms-addon-v1`. |
 
 ## Event template (copy/paste)
 

@@ -28,6 +28,7 @@ SMS terms audit decision captured: `DL-2026-02-14-068` (accepted) requires versi
 SMS lifecycle control decision captured: `DL-2026-02-14-069` (accepted) allows tenant-admin self-deactivation in Settings.
 Historical visibility decision captured: `DL-2026-02-14-070` (accepted) keeps SMS billing/report history visible as read-only after deactivation.
 Reactivation consent decision captured: `DL-2026-02-14-071` (accepted) requires terms re-acceptance on every SMS reactivation.
+Terms-version backlog decision captured: `DL-2026-02-14-072` (accepted) keeps `sms-addon-v1` for now and defers configurable versioning to Phase 6.
 
 ## Current implementation snapshot
 
@@ -69,6 +70,10 @@ Confirmed present in repo:
 4. **Lock accepted decisions DL-051..DL-062** after deployment verification.
 5. **Log final verification evidence** in `docs/LOCKED_DECISION_IMPLEMENTATION_LOG.md`.
 
+## Deferred to Phase 6 backlog
+
+- `DL-2026-02-14-072`: Admin-dev configurable SMS `terms_version` management (current state remains fixed at `sms-addon-v1`).
+
 Execution checklist:
 - `docs/PHASE5_STRIPE_CLI_VALIDATION_CHECKLIST.md`
 - `docs/PHASE5_DEPLOYMENT_COMMAND_SCRIPT.md`
@@ -86,5 +91,5 @@ For each unresolved item:
 
 ## Open questions queue (ask serially)
 
-1. Should SMS terms version remain fixed (`sms-addon-v1`) for now, or be promoted to configurable admin-dev controlled versioning in Phase 6?
+1. For Phase 6 configurable terms versioning, do we need a draft/publish workflow or a simple single-value update with audit log?
 

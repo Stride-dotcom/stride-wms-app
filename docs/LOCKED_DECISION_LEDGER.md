@@ -101,6 +101,7 @@ It captures high-impact implementation decisions, their status, and supersession
 | DL-2026-02-14-069 | Tenant admins can self-deactivate SMS add-on from Settings | SaaS SMS Add-on | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-070 | Historical SMS billing/report records remain visible as read-only after deactivation | SaaS Billing UX | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-071 | SMS reactivation requires terms re-acceptance every time | SaaS Compliance | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-072 | Keep terms_version fixed at sms-addon-v1 for now; move configurable versioning to Phase 6 backlog | SaaS Compliance | accepted | Chat Q&A (2026-02-14) | - | - |
 
 ## Detailed imports
 
@@ -530,6 +531,26 @@ Per-activation terms acceptance provides stronger consent evidence and avoids am
 - Keep explicit terms confirmation required in Settings activation flow for each activation/reactivation.
 - Record a fresh acceptance timestamp/version on every activation event.
 - Document this behavior in Billing/Settings UX so admins understand reactivation requirements.
+
+### DL-2026-02-14-072: Keep terms_version fixed at sms-addon-v1 for now; move configurable versioning to Phase 6 backlog
+- Domain: SaaS Compliance
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+For current rollout, keep `terms_version` fixed as `sms-addon-v1`. Add admin-dev configurable terms-version management as a planned Phase 6 follow-up.
+
+#### Why
+This keeps current delivery simple while preserving a clear tracked path for future legal/version governance improvements.
+
+#### Implementation impact
+- No immediate schema or UI change required for version configurability in current phase.
+- Phase 6 backlog must include admin-dev control for terms version value changes.
+- Future implementation should preserve audit continuity across version transitions.
 
 ## Decision entry template (copy/paste)
 
