@@ -1,38 +1,50 @@
-# Ledger Pending Packet Template
+# Locked Decision Import Packet
 
-- Packet ID: `LDP-<YYYY-MM-DD>-<topic-slug>-<chat-id>`
-- Date: `<YYYY-MM-DD>`
-- Topic slug: `<topic-slug>`
-- Chat ID: `<chat-id>`
-- Source artifact:
-  - `docs/ledger/sources/LOCKED_DECISION_SOURCE_<TOPIC_SLUG>_<YYYY-MM-DD>_chat-<CHAT_ID>.md`
+- Packet ID: `LDP-<YYYY-MM-DD>-<TOPIC_SLUG>-<chat-id>`
+- Topic: `<human readable topic>`
+- Topic Slug: `<TOPIC_SLUG>`
+- Source Artifact: `docs/ledger/sources/<source-file>.md`
+- Source Mode: `<current_chat|file_path>`
+- Source Path (if file): `<path or ->`
+- Created Date: `<YYYY-MM-DD>`
+- Actor: `<builder/agent>`
+- Status: `pending`
+
+## Scope Summary
+
+- Q&A items extracted: `<n>`
+- Existing decisions mapped: `<n>`
+- New decisions added: `<DL IDs>`
+- Unresolved/open (draft): `<DL IDs or ->`
+- Supersedes: `<IDs or ->`
 
 ## Decision Index Rows
 
-| Decision ID | Action | Title | State | Notes |
-|---|---|---|---|---|
-| DL-YYYY-MM-DD-NNN | add\|update\|reference | <title> | draft\|accepted\|locked | <notes> |
+<!-- Add raw markdown table rows only. No header row. -->
+| DL-<date>-<nnn> | <title> | <domain> | <state> | <source> | <supersedes> | <locked at or -> |
 
 ## Detailed Decision Entries
 
-### DL-YYYY-MM-DD-NNN
-- Domain: <domain>
-- State: <state>
-- Source: <source reference>
-- Supersedes: <decision IDs or ->
-- Superseded by: <decision IDs or ->
+<!-- Add full entry blocks exactly as they should appear in master ledger. -->
+### DL-<date>-<nnn>: <Short title>
+- Domain: <Module or cross-cutting area>
+- State: <draft|accepted|locked|superseded|rejected>
+- Source: <links/paths to Q&A, docs, issue, PR>
+- Supersedes: <Decision ID or ->
+- Superseded by: <Decision ID or ->
+- Date created: <YYYY-MM-DD>
+- Locked at: <YYYY-MM-DD or ->
 
 #### Decision
-<decision statement>
+<single clear statement of what was decided>
 
 #### Why
-<rationale>
+<rationale and constraints>
 
 #### Implementation impact
-<implementation notes>
+<files/modules/routes/tables affected>
 
 ## Implementation Log Rows
 
-| Event ID | Date | Decision ID | Event Type | Evidence | Actor | Notes |
-|---|---|---|---|---|---|---|
-| DLE-YYYY-MM-DD-NNN | YYYY-MM-DD | DL-YYYY-MM-DD-NNN | planned\|in_progress\|completed\|verified\|blocked | <evidence> | <actor> | <notes> |
+<!-- Add raw markdown table rows only. No header row. -->
+| DLE-<date>-<nnn> | <YYYY-MM-DD> | <Decision ID> | <planned|in_progress|completed|verified|blocked> | <evidence> | <actor> | <note> |

@@ -4,7 +4,7 @@
 
 - Source type: Chat transcript (this session)
 - Subject: Locations page repair, location types/capacity/import-export, and container workflow/scanning
-- Canonical archived source: `docs/ledger/sources/LOCKED_DECISION_SOURCE_LOCATIONS_CONTAINERS_QA_2026-02-15_chat-bc-93553291-7523-4d63-93a4-b47dc68b42ad.md`
+- Chat ID: `bc-93553291-7523-4d63-93a4-b47dc68b42ad`
 - Compiled by: builder
 - Compiled on: 2026-02-15
 - Purpose: Normalize explicit Q&A decisions for ledger import

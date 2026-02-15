@@ -1,95 +1,155 @@
-# Decision Ledger Builder Prompts (Packet Workflow)
+# Decision Ledger Builder Prompts (Conflict-Safe Packet Workflow)
 
-Use these prompts with any coding agent to maintain decision records without merge conflicts.
+Use these prompts with any coding builder (Cursor agent, Claude, ChatGPT code agent) to keep decision capture complete **without** creating merge conflicts on shared ledger files.
 
-## Canonical paths
-
-- Master ledger: `docs/ledger/MASTER_LEDGER.md`
-- Workflow guide: `docs/ledger/README.md`
-- Source artifacts: `docs/ledger/sources/*`
-- Pending packets: `docs/ledger/packets/pending/*`
-
-> Do not directly edit `docs/LOCKED_DECISION_LEDGER.md` or
-> `docs/LOCKED_DECISION_IMPLEMENTATION_LOG.md` in this workflow.
+Master control reference: `docs/ledger/MASTER_LEDGER.md`
 
 ---
 
-## Prompt A: Capture this chat into source + pending packet
+## Prompt A (chat/source capture): create source + pending packet only
 
 ```md
-Migrate decision updates from this chat into the packet workflow.
+Capture decisions from this chat/source into conflict-safe artifacts.
 
-CHAT_TOPIC: <short title>
-TOPIC_SLUG: <topic-slug>
-CHAT_ID: <chat id>
+CHAT_TOPIC: <short topic title, e.g., "Locations & Containers">
+TOPIC_SLUG: <UPPER_SNAKE_OR_SLUG, e.g., LOCATIONS_CONTAINERS>
+CHAT_ID: <chat/session id or short unique id>
+SOURCE_MODE: <current_chat|file_path>
+SOURCE_PATH: <path to PDF/markdown/transcript if SOURCE_MODE=file_path>
+TODAY: <YYYY-MM-DD>
+ACTOR: <builder/agent name>
+
+MASTER_LEDGER_PATH: docs/LOCKED_DECISION_LEDGER.md
+MASTER_LOG_PATH: docs/LOCKED_DECISION_IMPLEMENTATION_LOG.md
+SOURCE_DIR: docs/ledger/sources
+PENDING_PACKET_DIR: docs/ledger/packets/pending
+
+Requirements:
+1) Create a source artifact:
+   - docs/ledger/sources/LOCKED_DECISION_SOURCE_<TOPIC_SLUG>_<TODAY>_chat-<CHAT_ID>.md
+   - If SOURCE_MODE=current_chat: extract Q&A from the active chat.
+   - If SOURCE_MODE=file_path: read SOURCE_PATH fully and normalize Q&A/decision excerpts.
+2) Extract explicit decisions only (no guesses), group duplicates, and map each extracted Q&A item to:
+   - existing decision ID (already present in master), or
+   - new decision ID candidate.
+3) Determine decision states:
+   - draft if uncertain/conflicting,
+   - accepted if clear and approved in source,
+   - locked only if source is explicitly authoritative/final.
+4) Build one pending packet:
+   - docs/ledger/packets/pending/LDP-<TODAY>-<TOPIC_SLUG>-<CHAT_ID>.md
+   - Include sections:
+     a) Decision Index Rows
+     b) Detailed Decision Entries
+     c) Implementation Log Rows (`planned` for accepted/locked)
+5) Preserve immutability:
+   - Never rewrite locked decision bodies.
+   - If locked behavior changes, create a superseding decision entry.
+6) IMPORTANT conflict rule:
+   - Do NOT edit MASTER_LEDGER_PATH or MASTER_LOG_PATH in this prompt.
+   - Only add/update source + pending packet files.
+7) Return summary:
+   - source artifact path
+   - packet path
+   - mapped existing decisions
+   - new decisions prepared
+   - unresolved/open questions (draft)
+8) Commit and push with message:
+   "docs: add decision packet from <source/chat name>"
+```
+
+---
+
+## Prompt B (chat progress capture): create progress packet only
+
+```md
+Capture implementation progress updates as a pending packet (no master edits).
+
+TOPIC_SLUG: <topic slug>
+CHAT_ID: <chat/session id or short unique id>
+TODAY: <YYYY-MM-DD>
+ACTOR: <builder/agent name>
+EVIDENCE: <commit hashes, PR links, files changed, test results>
+TARGET_DECISIONS: <comma-separated IDs>
+NEW_EVENT_TYPE: <in_progress|completed|verified|blocked>
+PENDING_PACKET_DIR: docs/ledger/packets/pending
+
+Requirements:
+1) Create one pending packet in:
+   - docs/ledger/packets/pending/LDP-<TODAY>-<TOPIC_SLUG>-<CHAT_ID>-progress.md
+2) Packet must include:
+   - empty or omitted Decision Index Rows unless new decisions are introduced
+   - empty or omitted Detailed Decision Entries unless decisions changed
+   - Implementation Log Rows with one row per TARGET_DECISION
+3) Do not edit:
+   - docs/LOCKED_DECISION_LEDGER.md
+   - docs/LOCKED_DECISION_IMPLEMENTATION_LOG.md
+4) Return summary table of planned log rows.
+5) Commit and push with message:
+   "docs: add decision progress packet (<NEW_EVENT_TYPE>)"
+```
+
+---
+
+## Prompt C (integration only): apply pending packets to master
+
+```md
+Integrate all pending packets into master ledger/log and archive them.
+
+MASTER_LEDGER_PATH: docs/LOCKED_DECISION_LEDGER.md
+MASTER_LOG_PATH: docs/LOCKED_DECISION_IMPLEMENTATION_LOG.md
+PENDING_PACKET_DIR: docs/ledger/packets/pending
+APPLIED_PACKET_DIR: docs/ledger/packets/applied
+TODAY: <YYYY-MM-DD>
+
+Requirements:
+1) Run:
+   - npm run ledger:apply-packets
+2) Validate:
+   - No conflict markers in master files
+   - No duplicate decision IDs inserted
+   - No duplicate event IDs inserted
+3) Ensure packet files were moved from pending -> applied.
+4) Return summary:
+   - packets applied
+   - decisions inserted
+   - events inserted
+   - packets skipped/deduped
+5) Commit and push with message:
+   "docs: apply pending decision packets to master ledger"
+```
+
+---
+
+## Prompt D (milestone lock): lock accepted decisions through packet + integration
+
+```md
+Lock accepted decisions for milestone closure using packet workflow.
+
+TARGET_DECISIONS: <decision IDs>
+TOPIC_SLUG: <topic slug>
+CHAT_ID: <id>
 TODAY: <YYYY-MM-DD>
 ACTOR: <builder/agent>
 
-Create:
-1) Source artifact
-   docs/ledger/sources/LOCKED_DECISION_SOURCE_<TOPIC_SLUG>_<TODAY>_chat-<CHAT_ID>.md
-2) Pending packet
-   docs/ledger/packets/pending/LDP-<TODAY>-<TOPIC_SLUG>-<CHAT_ID>.md
-
-Packet must include sections:
-- Decision Index Rows
-- Detailed Decision Entries
-- Implementation Log Rows
-
-Validation:
-- Run npm run ledger:apply-packets:dry-run
-- Ensure packet parses and IDs are discoverable
-
-Output:
-- source artifact path
-- pending packet path
-- decision IDs captured
-- event IDs captured
-- unresolved draft decisions
-
-Commit/push:
-"docs: migrate this chat to packet-based ledger workflow"
+Requirements:
+1) Create a pending packet that:
+   - updates target decisions to state=locked with locked date
+   - appends `verified` implementation log rows with evidence
+2) Do not edit master files directly in this step.
+3) Commit/push packet branch.
+4) In integration branch, run Prompt C to apply packet to master.
+5) Final integration commit message:
+   "docs: lock approved decisions for milestone <name>"
 ```
 
 ---
 
-## Prompt B: Add implementation progress in packet form
+## Quick usage pattern
 
-```md
-Capture implementation progress as a new pending packet.
-
-TOPIC_SLUG: <topic-slug>
-CHAT_ID: <chat id>
-TODAY: <YYYY-MM-DD>
-TARGET_DECISIONS: <DL IDs>
-EVENT_ROWS: <DLE rows with evidence>
-
-Create:
-docs/ledger/packets/pending/LDP-<TODAY>-<TOPIC_SLUG>-<CHAT_ID>.md
-
-Include:
-- Decision Index Rows (if needed)
-- Detailed Decision Entries (if needed)
-- Implementation Log Rows (required)
-
-Run:
-npm run ledger:apply-packets:dry-run
-```
-
----
-
-## Prompt C: Packet validation only
-
-```md
-Validate pending ledger packets without mutating master files.
-
-Run:
-npm run ledger:apply-packets:dry-run
-
-Return:
-- packet files parsed
-- decisions found
-- events found
-- parse errors (if any)
-```
+1. Reuse a stable `TOPIC_SLUG` per workstream.
+2. For every chat, run Prompt A (and Prompt B if progress-only updates).
+3. Keep chat branches packet-only to prevent merge conflicts.
+4. Run Prompt C in integration flow to update master once.
+5. Use Prompt D at milestone close to lock finalized decisions.
 
