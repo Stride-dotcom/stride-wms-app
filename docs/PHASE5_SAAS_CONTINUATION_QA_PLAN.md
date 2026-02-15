@@ -25,6 +25,8 @@ Pricing-model decision captured: `DL-2026-02-14-065` (accepted) keeps one base p
 SMS onboarding decision captured: `DL-2026-02-14-066` (accepted) activates SMS post-checkout in Settings with form + terms.
 Billing visibility decision captured: `DL-2026-02-14-067` (accepted) requires subscription + SMS status visibility in Billing page.
 SMS terms audit decision captured: `DL-2026-02-14-068` (accepted) requires version/time/user/ip/user-agent/source capture.
+SMS lifecycle control decision captured: `DL-2026-02-14-069` (accepted) allows tenant-admin self-deactivation in Settings.
+Historical visibility decision captured: `DL-2026-02-14-070` (accepted) keeps SMS billing/report history visible as read-only after deactivation.
 
 ## Current implementation snapshot
 
@@ -82,5 +84,5 @@ For each unresolved item:
 
 ## Open questions queue (ask serially)
 
-1. For SMS add-on lifecycle, should tenant admins be able to self-deactivate SMS in Settings, or should deactivation require support/admin-dev action only?
+1. Should SMS reactivation require terms re-acceptance every time (current implementation), or only when terms_version changes?
 

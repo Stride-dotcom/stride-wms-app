@@ -20,6 +20,11 @@ interface ActivateSmsAddonInput {
   acceptanceSource?: string;
 }
 
+interface DeactivateSmsAddonInput {
+  reason?: string;
+  acceptanceSource?: string;
+}
+
 const DEFAULT_SMS_ADDON_ACTIVATION: SmsAddonActivationState = {
   is_active: false,
   activation_status: "not_activated",
@@ -99,9 +104,29 @@ export function useSmsAddonActivation() {
     },
   });
 
+  const deactivationMutation = useMutation<SmsAddonActivationState, Error, DeactivateSmsAddonInput>({
+    mutationFn: async ({ reason, acceptanceSource }) => {
+      const { data, error } = await (supabase as any).rpc("rpc_deactivate_sms_addon", {
+        p_reason: reason ?? "self_service",
+        p_acceptance_source: acceptanceSource ?? "settings_sms_activation_card",
+      });
+
+      if (error) {
+        throw new Error(error.message || "Failed to deactivate SMS add-on");
+      }
+
+      return normalizeActivationPayload(data);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: SMS_ADDON_QUERY_KEY });
+    },
+  });
+
   return {
     ...query,
     activateSmsAddon: activationMutation.mutateAsync,
     isActivating: activationMutation.isPending,
+    deactivateSmsAddon: deactivationMutation.mutateAsync,
+    isDeactivating: deactivationMutation.isPending,
   };
 }

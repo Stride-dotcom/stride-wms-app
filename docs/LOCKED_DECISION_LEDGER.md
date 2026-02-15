@@ -98,24 +98,26 @@ It captures high-impact implementation decisions, their status, and supersession
 | DL-2026-02-14-066 | SMS add-on activation happens post-checkout in app Settings with form and terms acceptance | SaaS SMS Add-on | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-067 | Billing page must show consolidated subscription details including SMS add-on status | SaaS Billing UX | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-068 | SMS terms acceptance audit must capture version/time/user/ip/user-agent/source | SaaS Compliance | accepted | Chat Q&A (2026-02-14) | - | - |
-| DL-2026-02-14-069 | Substantive implementation Q&A must be logged append-only in docs | Governance | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
-| DL-2026-02-14-070 | SMS platform is centrally managed in Stride Twilio account with no tenant credential setup | SMS Platform Architecture | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
-| DL-2026-02-14-071 | SMS number provisioning and activation workflow must be fully automated | SMS Provisioning Automation | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
-| DL-2026-02-14-072 | Toll-free numbers are the default automated sender strategy | Messaging Compliance | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
-| DL-2026-02-14-073 | SMS remains disabled until toll-free verification is approved | Messaging Compliance | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
-| DL-2026-02-14-074 | SMS billing start trigger is verification approval timestamp | Billing Automation | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
-| DL-2026-02-14-075 | Global pricing includes app monthly plus SMS monthly and per-segment fees | Pricing | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
-| DL-2026-02-14-076 | Price-change notices send to company_email only with billing tooltip guidance | Billing UX/Notifications | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
-| DL-2026-02-14-077 | SMS usage billing includes inbound and outbound traffic | SMS Billing | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
-| DL-2026-02-14-078 | SMS usage metering uses Twilio-accurate segment counts | SMS Billing | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
-| DL-2026-02-14-079 | Subscription and SMS add-on charges are billed automatically through Stripe | Billing Automation | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
-| DL-2026-02-14-080 | Admin-dev pricing console manages live and scheduled app/SMS rates plus notice actions | Admin Ops | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
-| DL-2026-02-14-081 | Subscription invoices are surfaced in Tenant Account Settings > Billing | Billing UX | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
-| DL-2026-02-14-082 | Public SMS opt-in page is tenant-branded and resolved by subdomain | SMS Opt-In UX | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
-| DL-2026-02-14-083 | Tenant editing of SMS compliance content is locked for simplicity | SMS Governance | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
-| DL-2026-02-14-084 | Tenant-facing Twilio setup sections are removed from standard organization settings | SMS Governance | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
-| DL-2026-02-14-085 | Internal comped billing override supports multiple internal tenants | Billing Policy | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
-| DL-2026-02-14-086 | First-month SMS monthly fee proration policy remains open pending pricing research | Billing Policy | draft | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
+| DL-2026-02-14-069 | Tenant admins can self-deactivate SMS add-on from Settings | SaaS SMS Add-on | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-070 | Historical SMS billing/report records remain visible as read-only after deactivation | SaaS Billing UX | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-071 | Substantive implementation Q&A must be logged append-only in docs | Governance | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
+| DL-2026-02-14-072 | SMS platform is centrally managed in Stride Twilio account with no tenant credential setup | SMS Platform Architecture | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
+| DL-2026-02-14-073 | SMS number provisioning and activation workflow must be fully automated | SMS Provisioning Automation | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
+| DL-2026-02-14-074 | Toll-free numbers are the default automated sender strategy | Messaging Compliance | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
+| DL-2026-02-14-075 | SMS remains disabled until toll-free verification is approved | Messaging Compliance | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
+| DL-2026-02-14-076 | SMS billing start trigger is verification approval timestamp | Billing Automation | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
+| DL-2026-02-14-077 | Global pricing includes app monthly plus SMS monthly and per-segment fees | Pricing | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
+| DL-2026-02-14-078 | Price-change notices send to company_email only with billing tooltip guidance | Billing UX/Notifications | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
+| DL-2026-02-14-079 | SMS usage billing includes inbound and outbound traffic | SMS Billing | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
+| DL-2026-02-14-080 | SMS usage metering uses Twilio-accurate segment counts | SMS Billing | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
+| DL-2026-02-14-081 | Subscription and SMS add-on charges are billed automatically through Stripe | Billing Automation | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
+| DL-2026-02-14-082 | Admin-dev pricing console manages live and scheduled app/SMS rates plus notice actions | Admin Ops | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
+| DL-2026-02-14-083 | Subscription invoices are surfaced in Tenant Account Settings > Billing | Billing UX | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
+| DL-2026-02-14-084 | Public SMS opt-in page is tenant-branded and resolved by subdomain | SMS Opt-In UX | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
+| DL-2026-02-14-085 | Tenant editing of SMS compliance content is locked for simplicity | SMS Governance | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
+| DL-2026-02-14-086 | Tenant-facing Twilio setup sections are removed from standard organization settings | SMS Governance | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
+| DL-2026-02-14-087 | Internal comped billing override supports multiple internal tenants | Billing Policy | accepted | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
+| DL-2026-02-14-088 | First-month SMS monthly fee proration policy remains open pending pricing research | Billing Policy | draft | `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md` | - | - |
 
 ## Detailed imports
 
@@ -489,7 +491,46 @@ These fields are the baseline evidence needed for operational traceability and c
 - Capture acceptance metadata server-side during activation to avoid client-trust gaps.
 - Surface resulting activation/acceptance status in Settings and Billing summary UX.
 
-### DL-2026-02-14-069: Substantive implementation Q&A must be logged append-only in docs
+### DL-2026-02-14-069: Tenant admins can self-deactivate SMS add-on from Settings
+- Domain: SaaS SMS Add-on
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+Tenant admins should be able to self-deactivate the SMS add-on directly from the in-app Settings flow.
+
+#### Why
+Self-service deactivation reduces support dependency and gives tenant admins direct control over optional add-on lifecycle changes.
+
+#### Implementation impact
+- Add a tenant-admin deactivation RPC and audit log event for self-service deactivation.
+- Expose a deactivation action in Settings SMS add-on activation UI with explicit confirmation.
+- Reflect `disabled` SMS add-on status in Billing summary visibility.
+
+### DL-2026-02-14-070: Historical SMS billing/report records remain visible as read-only after deactivation
+- Domain: SaaS Billing UX
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+When SMS add-on is deactivated, existing SMS billing/report records stay visible to tenant users as read-only history.
+
+#### Why
+Preserving historical records supports auditability, operational reconciliation, and user trust without allowing retroactive edits.
+
+#### Implementation impact
+- Do not delete or hide historical SMS billing/report data during self-deactivation flow.
+- Billing UX should communicate that deactivated SMS history remains visible in read-only mode.
+
+### DL-2026-02-14-071: Substantive implementation Q&A must be logged append-only in docs
 - Domain: Governance
 - State: accepted
 - Source: `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md`
@@ -508,7 +549,7 @@ This prevents decision drift and ensures implementation can be traced to explici
 - Maintain dated append-only Q&A logs in `docs/`.
 - Cross-link Q&A entries and decision IDs in ledger/log artifacts.
 
-### DL-2026-02-14-070: SMS platform is centrally managed in Stride Twilio account with no tenant credential setup
+### DL-2026-02-14-072: SMS platform is centrally managed in Stride Twilio account with no tenant credential setup
 - Domain: SMS Platform Architecture
 - State: accepted
 - Source: `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md`
@@ -527,7 +568,7 @@ Tenant self-setup is high-friction and error-prone; central management simplifie
 - Remove tenant-facing Twilio credential setup flows from standard settings UX.
 - Provide centralized internal controls for Twilio operations and compliance.
 
-### DL-2026-02-14-071: SMS number provisioning and activation workflow must be fully automated
+### DL-2026-02-14-073: SMS number provisioning and activation workflow must be fully automated
 - Domain: SMS Provisioning Automation
 - State: accepted
 - Source: `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md`
@@ -546,7 +587,7 @@ Manual provisioning does not scale and introduces operational delay and inconsis
 - Build automated provisioning workflow, status tracking, and retry/error handling.
 - Tie activation state directly to send-eligibility and billing activation.
 
-### DL-2026-02-14-072: Toll-free numbers are the default automated sender strategy
+### DL-2026-02-14-074: Toll-free numbers are the default automated sender strategy
 - Domain: Messaging Compliance
 - State: accepted
 - Source: `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md`
@@ -564,7 +605,7 @@ Automated sender provisioning defaults to toll-free numbers, not 10DLC.
 #### Implementation impact
 - Default provisioning/verification workflow targets toll-free numbers.
 
-### DL-2026-02-14-073: SMS remains disabled until toll-free verification is approved
+### DL-2026-02-14-075: SMS remains disabled until toll-free verification is approved
 - Domain: Messaging Compliance
 - State: accepted
 - Source: `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md`
@@ -583,7 +624,7 @@ This reduces compliance risk and prevents pre-approval messaging behavior.
 - Gate outbound sends by verification status.
 - Expose clear pending/approved/rejected status in tenant billing/settings UX.
 
-### DL-2026-02-14-074: SMS billing start trigger is verification approval timestamp
+### DL-2026-02-14-076: SMS billing start trigger is verification approval timestamp
 - Domain: Billing Automation
 - State: accepted
 - Source: `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md`
@@ -602,7 +643,7 @@ Charging before approved service availability causes avoidable disputes.
 - Persist approval timestamp and use it as billing activation marker.
 - Suppress SMS charges while status is pending/rejected.
 
-### DL-2026-02-14-075: Global pricing includes app monthly plus SMS monthly and per-segment fees
+### DL-2026-02-14-077: Global pricing includes app monthly plus SMS monthly and per-segment fees
 - Domain: Pricing
 - State: accepted
 - Source: `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md`
@@ -620,7 +661,7 @@ A single pricing set reduces complexity while pricing strategy is finalized.
 #### Implementation impact
 - Add global effective-rate model across subscription + SMS billing components.
 
-### DL-2026-02-14-076: Price-change notices send to company_email only with billing tooltip guidance
+### DL-2026-02-14-078: Price-change notices send to company_email only with billing tooltip guidance
 - Domain: Billing UX/Notifications
 - State: accepted
 - Source: `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md`
@@ -638,7 +679,7 @@ This keeps communication routing simple and explicit.
 #### Implementation impact
 - Add billing email help tooltip and route notice dispatches to `company_email`.
 
-### DL-2026-02-14-077: SMS usage billing includes inbound and outbound traffic
+### DL-2026-02-14-079: SMS usage billing includes inbound and outbound traffic
 - Domain: SMS Billing
 - State: accepted
 - Source: `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md`
@@ -656,7 +697,7 @@ Provider/carrier costs apply in both directions.
 #### Implementation impact
 - Usage aggregation includes both message directions.
 
-### DL-2026-02-14-078: SMS usage metering uses Twilio-accurate segment counts
+### DL-2026-02-14-080: SMS usage metering uses Twilio-accurate segment counts
 - Domain: SMS Billing
 - State: accepted
 - Source: `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md`
@@ -674,7 +715,7 @@ Segment billing aligns with actual provider economics and protects margins.
 #### Implementation impact
 - Store and aggregate segment counts; keep reconciliation path with Twilio usage data.
 
-### DL-2026-02-14-079: Subscription and SMS add-on charges are billed automatically through Stripe
+### DL-2026-02-14-081: Subscription and SMS add-on charges are billed automatically through Stripe
 - Domain: Billing Automation
 - State: accepted
 - Source: `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md`
@@ -692,7 +733,7 @@ Automation improves reliability and reduces manual billing operations.
 #### Implementation impact
 - Integrate pricing/usage outputs into Stripe billing and sync invoice results back to app UX.
 
-### DL-2026-02-14-080: Admin-dev pricing console manages live and scheduled app/SMS rates plus notice actions
+### DL-2026-02-14-082: Admin-dev pricing console manages live and scheduled app/SMS rates plus notice actions
 - Domain: Admin Ops
 - State: accepted
 - Source: `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md`
@@ -710,7 +751,7 @@ Pricing is still evolving and needs operational control without code deploys.
 #### Implementation impact
 - Add pricing schedule model with effective dates and operational notice actions.
 
-### DL-2026-02-14-081: Subscription invoices are surfaced in Tenant Account Settings > Billing
+### DL-2026-02-14-083: Subscription invoices are surfaced in Tenant Account Settings > Billing
 - Domain: Billing UX
 - State: accepted
 - Source: `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md`
@@ -728,7 +769,7 @@ SaaS billing and operational service billing are different user workflows.
 #### Implementation impact
 - Add subscription invoice list/summary in tenant billing settings.
 
-### DL-2026-02-14-082: Public SMS opt-in page is tenant-branded and resolved by subdomain
+### DL-2026-02-14-084: Public SMS opt-in page is tenant-branded and resolved by subdomain
 - Domain: SMS Opt-In UX
 - State: accepted
 - Source: `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md`
@@ -746,7 +787,7 @@ Subdomain resolution avoids tenant IDs in URLs and improves public clarity.
 #### Implementation impact
 - Add subdomain-to-tenant resolution and tenant-brand rendering on public SMS routes.
 
-### DL-2026-02-14-083: Tenant editing of SMS compliance content is locked for simplicity
+### DL-2026-02-14-085: Tenant editing of SMS compliance content is locked for simplicity
 - Domain: SMS Governance
 - State: accepted
 - Source: `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md`
@@ -764,7 +805,7 @@ Centralized control reduces compliance inconsistency during rollout.
 #### Implementation impact
 - Restrict/remove tenant edit controls for SMS compliance settings.
 
-### DL-2026-02-14-084: Tenant-facing Twilio setup sections are removed from standard organization settings
+### DL-2026-02-14-086: Tenant-facing Twilio setup sections are removed from standard organization settings
 - Domain: SMS Governance
 - State: accepted
 - Source: `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md`
@@ -782,7 +823,7 @@ Tenant self-configuration conflicts with centrally managed SMS architecture.
 #### Implementation impact
 - Hide/remove tenant Twilio setup surfaces and route users to billing/activation status UX.
 
-### DL-2026-02-14-085: Internal comped billing override supports multiple internal tenants
+### DL-2026-02-14-087: Internal comped billing override supports multiple internal tenants
 - Domain: Billing Policy
 - State: accepted
 - Source: `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md`
@@ -800,7 +841,7 @@ Internal self-use/testing requires no-charge operation for more than one interna
 #### Implementation impact
 - Add tenant-level comp/waiver controls, audit trail, and billing exclusion logic.
 
-### DL-2026-02-14-086: First-month SMS monthly fee proration policy remains open pending pricing research
+### DL-2026-02-14-088: First-month SMS monthly fee proration policy remains open pending pricing research
 - Domain: Billing Policy
 - State: draft
 - Source: `docs/LOCKED_DECISION_QA_LOG_2026-02-14.md`
