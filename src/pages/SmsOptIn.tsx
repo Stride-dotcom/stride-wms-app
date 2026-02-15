@@ -47,6 +47,13 @@ export default function SmsOptIn() {
   useEffect(() => {
     const fetchTenantInfo = async () => {
       try {
+        setResolvedTenantId(tenantIdFromUrl);
+        setTenantInfo(null);
+        setError(null);
+        setLoading(true);
+        setSuccess(false);
+        setSubmitError(null);
+
         const host =
           typeof window !== 'undefined' ? window.location.hostname : undefined;
 
@@ -76,7 +83,7 @@ export default function SmsOptIn() {
   }, [tenantIdFromUrl]);
 
   const handleSubmit = async () => {
-    const tenantId = resolvedTenantId || tenantIdFromUrl;
+    const tenantId = tenantIdFromUrl || resolvedTenantId;
     if (!phone.trim() || !agreed || !tenantId) return;
 
     const normalizedPhone = normalizePhone(phone.trim());

@@ -73,10 +73,12 @@ function normalizeSenderProfilePayload(payload: unknown): SmsSenderProfileState 
 
 export function useSmsSenderProvisioning() {
   const queryClient = useQueryClient();
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
+  const tenantId = profile?.tenant_id ?? null;
+  const queryKey = [...SMS_SENDER_PROFILE_QUERY_KEY, tenantId] as const;
 
   const query = useQuery<SmsSenderProfileState>({
-    queryKey: SMS_SENDER_PROFILE_QUERY_KEY,
+    queryKey,
     enabled: !!session,
     staleTime: 60 * 1000,
     queryFn: async () => {
@@ -103,7 +105,7 @@ export function useSmsSenderProvisioning() {
       return normalizeSenderProfilePayload(data);
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: SMS_SENDER_PROFILE_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey });
     },
   });
 

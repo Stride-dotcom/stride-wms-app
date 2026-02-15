@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,6 +69,21 @@ export default function StripeOps() {
       />
 
       <div className="space-y-6">
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/admin/sms-sender-ops">
+              <MaterialIcon name="sms" size="sm" className="mr-2" />
+              Open SMS Sender Ops
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/admin/pricing-ops">
+              <MaterialIcon name="tune" size="sm" className="mr-2" />
+              Open Pricing Ops
+            </Link>
+          </Button>
+        </div>
+
         <Card>
           <CardHeader>
             <CardTitle>Gate state</CardTitle>

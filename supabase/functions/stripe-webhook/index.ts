@@ -43,6 +43,13 @@ function mapStripeStatus(stripeStatus: string): string {
   }
 }
 
+function toIsoFromUnix(value: unknown): string | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+  return new Date(value * 1000).toISOString();
+}
+
 async function tenantExists(
   supabase: ReturnType<typeof getServiceClient>,
   tenantId: string
@@ -96,6 +103,62 @@ async function resolveTenantByStripeMapping(
   }
 
   return null;
+}
+
+async function upsertSubscriptionInvoiceSnapshot(
+  supabase: ReturnType<typeof getServiceClient>,
+  invoice: Stripe.Invoice
+) {
+  const anyInvoice = invoice as unknown as Record<string, any>;
+  const customerId =
+    typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id ?? null;
+  const subscriptionId =
+    typeof invoice.subscription === "string"
+      ? invoice.subscription
+      : invoice.subscription?.id ?? null;
+
+  const resolved = await resolveTenantByStripeMapping(supabase, customerId, subscriptionId);
+  if (!resolved) {
+    console.warn(
+      `invoice snapshot upsert: no tenant found for customer=${customerId ?? "null"} subscription=${subscriptionId ?? "null"}, skipping`
+    );
+    return;
+  }
+
+  const firstLine = Array.isArray(invoice.lines?.data) && invoice.lines.data.length > 0
+    ? (invoice.lines.data[0] as any)
+    : null;
+  const periodStart = toIsoFromUnix(anyInvoice.period_start ?? firstLine?.period?.start);
+  const periodEnd = toIsoFromUnix(anyInvoice.period_end ?? firstLine?.period?.end);
+  const dueDate = toIsoFromUnix(anyInvoice.due_date);
+  const paidAt = toIsoFromUnix(anyInvoice.status_transitions?.paid_at);
+  const createdAt = toIsoFromUnix(anyInvoice.created);
+
+  const { error } = await supabase.rpc("rpc_upsert_subscription_invoice_from_stripe", {
+    p_tenant_id: resolved.tenant_id,
+    p_stripe_invoice_id: invoice.id,
+    p_stripe_customer_id: customerId,
+    p_stripe_subscription_id: subscriptionId,
+    p_status: anyInvoice.status ?? "draft",
+    p_currency: anyInvoice.currency ?? null,
+    p_amount_due: Number(anyInvoice.amount_due ?? 0) / 100,
+    p_amount_paid: Number(anyInvoice.amount_paid ?? 0) / 100,
+    p_amount_remaining: Number(anyInvoice.amount_remaining ?? 0) / 100,
+    p_hosted_invoice_url: anyInvoice.hosted_invoice_url ?? null,
+    p_invoice_pdf: anyInvoice.invoice_pdf ?? null,
+    p_period_start: periodStart,
+    p_period_end: periodEnd,
+    p_due_date: dueDate,
+    p_paid_at: paidAt,
+    p_stripe_created_at: createdAt,
+    p_metadata: anyInvoice.metadata ?? {},
+  });
+
+  if (error) {
+    console.error("rpc_upsert_subscription_invoice_from_stripe error:", error.message);
+  } else {
+    console.log(`invoice snapshot upserted for tenant ${resolved.tenant_id} (${invoice.id})`);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -170,6 +233,8 @@ async function handleInvoicePaid(
   } else {
     console.log(`invoice.paid: marked ok for subscription ${subscriptionId}`);
   }
+
+  await upsertSubscriptionInvoiceSnapshot(supabase, invoice);
 }
 
 async function handleInvoicePaymentFailed(
@@ -196,6 +261,24 @@ async function handleInvoicePaymentFailed(
   } else {
     console.log(`invoice.payment_failed: started grace for subscription ${subscriptionId}`);
   }
+
+  await upsertSubscriptionInvoiceSnapshot(supabase, invoice);
+}
+
+async function handleInvoiceFinalized(
+  supabase: ReturnType<typeof getServiceClient>,
+  event: Stripe.Event
+) {
+  const invoice = event.data.object as Stripe.Invoice;
+  await upsertSubscriptionInvoiceSnapshot(supabase, invoice);
+}
+
+async function handleInvoiceUpdated(
+  supabase: ReturnType<typeof getServiceClient>,
+  event: Stripe.Event
+) {
+  const invoice = event.data.object as Stripe.Invoice;
+  await upsertSubscriptionInvoiceSnapshot(supabase, invoice);
 }
 
 async function handleSubscriptionUpdated(
@@ -322,6 +405,12 @@ serve(async (req: Request) => {
         break;
       case "invoice.payment_failed":
         await handleInvoicePaymentFailed(supabase, event);
+        break;
+      case "invoice.finalized":
+        await handleInvoiceFinalized(supabase, event);
+        break;
+      case "invoice.updated":
+        await handleInvoiceUpdated(supabase, event);
         break;
       case "customer.subscription.updated":
         await handleSubscriptionUpdated(supabase, event);
