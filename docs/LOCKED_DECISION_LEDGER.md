@@ -100,6 +100,7 @@ It captures high-impact implementation decisions, their status, and supersession
 | DL-2026-02-14-068 | SMS terms acceptance audit must capture version/time/user/ip/user-agent/source | SaaS Compliance | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-069 | Tenant admins can self-deactivate SMS add-on from Settings | SaaS SMS Add-on | accepted | Chat Q&A (2026-02-14) | - | - |
 | DL-2026-02-14-070 | Historical SMS billing/report records remain visible as read-only after deactivation | SaaS Billing UX | accepted | Chat Q&A (2026-02-14) | - | - |
+| DL-2026-02-14-071 | SMS reactivation requires terms re-acceptance every time | SaaS Compliance | accepted | Chat Q&A (2026-02-14) | - | - |
 
 ## Detailed imports
 
@@ -509,6 +510,26 @@ Preserving historical records supports auditability, operational reconciliation,
 #### Implementation impact
 - Do not delete or hide historical SMS billing/report data during self-deactivation flow.
 - Billing UX should communicate that deactivated SMS history remains visible in read-only mode.
+
+### DL-2026-02-14-071: SMS reactivation requires terms re-acceptance every time
+- Domain: SaaS Compliance
+- State: accepted
+- Source: Chat Q&A (2026-02-14)
+- Supersedes: -
+- Superseded by: -
+- Date created: 2026-02-14
+- Locked at: -
+
+#### Decision
+Whenever SMS add-on is reactivated, the user must re-accept terms again (no prior acceptance carry-forward).
+
+#### Why
+Per-activation terms acceptance provides stronger consent evidence and avoids ambiguity when activation state changes over time.
+
+#### Implementation impact
+- Keep explicit terms confirmation required in Settings activation flow for each activation/reactivation.
+- Record a fresh acceptance timestamp/version on every activation event.
+- Document this behavior in Billing/Settings UX so admins understand reactivation requirements.
 
 ## Decision entry template (copy/paste)
 

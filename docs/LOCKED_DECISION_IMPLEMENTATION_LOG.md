@@ -61,6 +61,7 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-039 | 2026-02-14 | DL-2026-02-14-070 | completed | Updated `docs/LOCKED_DECISION_LEDGER.md` and `docs/PHASE5_SAAS_CONTINUATION_QA_PLAN.md` | builder | Captured accepted decision that deactivated SMS history remains visible as read-only in tenant-facing billing/report views. |
 | DLE-2026-02-14-040 | 2026-02-14 | DL-2026-02-14-070 | completed | Updated `src/pages/Billing.tsx` summary messaging | builder | Added explicit Billing UI note that disabled SMS status retains read-only historical billing/report visibility. |
 | DLE-2026-02-14-041 | 2026-02-14 | DL-2026-02-14-070 | verified | `npx tsc --noEmit`, `npm run build` (post commit `e6bc478`) | builder | Local static verification passed for read-only history decision capture and Billing read-only visibility messaging update. |
+| DLE-2026-02-14-042 | 2026-02-14 | DL-2026-02-14-071 | completed | Updated `docs/LOCKED_DECISION_LEDGER.md`, `docs/PHASE5_SAAS_CONTINUATION_QA_PLAN.md`, `src/components/settings/SmsAddonActivationCard.tsx` | builder | Captured accepted re-acceptance policy and clarified in Settings UI that terms must be re-accepted for each reactivation. |
 
 ## Event template (copy/paste)
 
