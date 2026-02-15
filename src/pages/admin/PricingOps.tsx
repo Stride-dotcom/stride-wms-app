@@ -151,7 +151,13 @@ export default function PricingOps() {
           description="Admin-dev console for global app/SMS pricing schedules and subscriber notice dispatch."
         />
 
-        <div className="flex justify-end">
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/admin/billing-overrides-ops">
+              <MaterialIcon name="money_off" size="sm" className="mr-2" />
+              Open Billing Overrides Ops
+            </Link>
+          </Button>
           <Button variant="outline" size="sm" asChild>
             <Link to="/admin/sms-sender-ops">
               <MaterialIcon name="sms" size="sm" className="mr-2" />

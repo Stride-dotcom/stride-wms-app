@@ -81,6 +81,30 @@ serve(async (req: Request): Promise<Response> => {
       return jsonResponse({ ok: false, error: "User tenant not found" }, 400);
     }
 
+    const { data: billingOverride, error: billingOverrideError } = await (supabase as any)
+      .from("tenant_billing_overrides")
+      .select("is_comped, expires_at")
+      .eq("tenant_id", profile.tenant_id)
+      .maybeSingle();
+    if (billingOverrideError) {
+      return jsonResponse({ ok: false, error: billingOverrideError.message }, 500);
+    }
+
+    const isCompedTenant =
+      billingOverride?.is_comped === true &&
+      (!billingOverride?.expires_at ||
+        new Date(String(billingOverride.expires_at)).getTime() > Date.now());
+    if (isCompedTenant) {
+      return jsonResponse(
+        {
+          ok: false,
+          error:
+            "This tenant is currently marked as comped. Stripe portal access is disabled while the comped override is active.",
+        },
+        409
+      );
+    }
+
     const { data: subscriptionRow, error: subscriptionError } = await supabase
       .from("tenant_subscriptions")
       .select("stripe_customer_id, stripe_subscription_id")

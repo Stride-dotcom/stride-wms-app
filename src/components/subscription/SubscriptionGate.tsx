@@ -12,6 +12,7 @@ const SubscriptionGateContext = createContext<SubscriptionGateState>({
   is_active: true,
   is_in_grace: false,
   is_restricted: false,
+  is_comped: false,
 });
 
 export function useSubscriptionGateContext() {
@@ -31,6 +32,7 @@ export function SubscriptionGateProvider({ children }: { children: ReactNode }) 
     is_active: true,
     is_in_grace: false,
     is_restricted: false,
+    is_comped: false,
   };
 
   // Don't render gate context when not authenticated
