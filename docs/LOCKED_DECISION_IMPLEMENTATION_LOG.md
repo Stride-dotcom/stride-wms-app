@@ -60,6 +60,7 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-038 | 2026-02-14 | DL-2026-02-14-069 | verified | `npx tsc --noEmit`, `npm run build` (post commit `81e21ed`) | builder | Local static verification passed for self-deactivation RPC + Settings/Billing self-service UX updates. |
 | DLE-2026-02-14-039 | 2026-02-14 | DL-2026-02-14-070 | completed | Updated `docs/LOCKED_DECISION_LEDGER.md` and `docs/PHASE5_SAAS_CONTINUATION_QA_PLAN.md` | builder | Captured accepted decision that deactivated SMS history remains visible as read-only in tenant-facing billing/report views. |
 | DLE-2026-02-14-040 | 2026-02-14 | DL-2026-02-14-070 | completed | Updated `src/pages/Billing.tsx` summary messaging | builder | Added explicit Billing UI note that disabled SMS status retains read-only historical billing/report visibility. |
+| DLE-2026-02-14-041 | 2026-02-14 | DL-2026-02-14-070 | verified | `npx tsc --noEmit`, `npm run build` (post commit `e6bc478`) | builder | Local static verification passed for read-only history decision capture and Billing read-only visibility messaging update. |
 
 ## Event template (copy/paste)
 
