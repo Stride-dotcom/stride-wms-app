@@ -189,6 +189,7 @@ async function listPendingPackets(pendingDir) {
 
 function dedupeIndexRows(rows, ledgerText) {
   const kept = [];
+  const seen = new Set();
   for (const row of rows) {
     const id = parseRowFirstCellId(row);
     if (!id) {
@@ -197,6 +198,10 @@ function dedupeIndexRows(rows, ledgerText) {
     if (ledgerText.includes(`| ${id} |`)) {
       continue;
     }
+    if (seen.has(id)) {
+      continue;
+    }
+    seen.add(id);
     kept.push(row);
   }
   return kept;
@@ -204,6 +209,7 @@ function dedupeIndexRows(rows, ledgerText) {
 
 function dedupeLogRows(rows, logText) {
   const kept = [];
+  const seen = new Set();
   for (const row of rows) {
     const id = parseRowFirstCellId(row);
     if (!id) {
@@ -212,6 +218,10 @@ function dedupeLogRows(rows, logText) {
     if (logText.includes(`| ${id} |`)) {
       continue;
     }
+    if (seen.has(id)) {
+      continue;
+    }
+    seen.add(id);
     kept.push(row);
   }
   return kept;
@@ -219,6 +229,7 @@ function dedupeLogRows(rows, logText) {
 
 function dedupeDecisionEntries(entries, ledgerText) {
   const kept = [];
+  const seen = new Set();
   for (const entry of entries) {
     const id = parseDecisionIdFromEntry(entry);
     if (!id) {
@@ -227,6 +238,10 @@ function dedupeDecisionEntries(entries, ledgerText) {
     if (ledgerText.includes(`### ${id}:`)) {
       continue;
     }
+    if (seen.has(id)) {
+      continue;
+    }
+    seen.add(id);
     kept.push(entry);
   }
   return kept;
