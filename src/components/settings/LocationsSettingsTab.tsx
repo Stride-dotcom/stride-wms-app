@@ -337,20 +337,21 @@ export function LocationsSettingsTab({
   };
 
   const handleExportLocations = () => {
-    const csvRows = ['location_name,warehouse_name,type,status'];
-    filteredLocations.forEach(loc => {
-      const warehouse = warehouseMap.get(loc.warehouse_id);
-      csvRows.push(`${loc.code},${warehouse?.name || ''},${normalizeLocationType(getDisplayType(loc))},${loc.status}`);
+    const headerRow = LOCATION_LIST_COLUMNS.map((column) => column.label);
+    const dataRows = filteredLocations.map((location) => {
+      const warehouse = warehouseMap.get(location.warehouse_id);
+      const isActive = (location as any).is_active !== false;
+      return LOCATION_LIST_COLUMNS.map((column) =>
+        getLocationColumnExportValue(location, warehouse?.name || '', isActive, column.key)
+      );
     });
-    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'locations-export.csv';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+
+    const worksheet = XLSX.utils.aoa_to_sheet([headerRow, ...dataRows]);
+    worksheet['!cols'] = LOCATION_LIST_COLUMNS.map(() => ({ wch: 18 }));
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Locations');
+    XLSX.writeFile(workbook, 'locations-export.xlsx');
   };
 
   const getStatusBadge = (status: string, isActive?: boolean) => {
@@ -433,6 +434,38 @@ export function LocationsSettingsTab({
       }
       default:
         return '—';
+    }
+  };
+
+  const getLocationColumnExportValue = (
+    location: Location,
+    warehouseName: string,
+    isActive: boolean,
+    columnKey: LocationListColumnKey
+  ): string | number => {
+    switch (columnKey) {
+      case 'code':
+        return location.code;
+      case 'name':
+        return location.name || '';
+      case 'type':
+        return normalizeLocationType(getDisplayType(location));
+      case 'warehouse':
+        return warehouseName;
+      case 'capacity': {
+        const capacity = (location as unknown as { capacity_cuft?: number | null }).capacity_cuft ?? location.capacity_cu_ft;
+        return capacity ?? '';
+      }
+      case 'status':
+        return isActive ? location.status : 'archived';
+      case 'sq_ft':
+        return location.capacity_sq_ft ?? '';
+      case 'cu_ft': {
+        const cuFt = location.capacity_cu_ft ?? (location as unknown as { capacity_cuft?: number | null }).capacity_cuft;
+        return cuFt ?? '';
+      }
+      default:
+        return '';
     }
   };
 
