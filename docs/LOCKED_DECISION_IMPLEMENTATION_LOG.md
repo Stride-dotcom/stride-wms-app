@@ -66,6 +66,7 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-044 | 2026-02-14 | DL-2026-02-14-072 | completed | Updated `docs/LOCKED_DECISION_LEDGER.md`, `docs/PHASE5_SAAS_CONTINUATION_QA_PLAN.md` | builder | Captured explicit reminder that configurable SMS terms-version control is deferred to Phase 6 while keeping current value fixed at `sms-addon-v1`. |
 | DLE-2026-02-14-045 | 2026-02-14 | DL-2026-02-14-063 | blocked | `npx supabase functions deploy ...` in cloud runtime | builder | Deployment execution blocked in this runtime because `SUPABASE_ACCESS_TOKEN` is not available for Supabase management API authentication. |
 | DLE-2026-02-14-046 | 2026-02-14 | DL-2026-02-14-063 | completed | Updated `scripts/phase5_validate.sh`, `docs/PHASE5_DEPLOYMENT_COMMAND_SCRIPT.md` | builder | Hardened deploy helper for current CLI behavior: supports npx fallback, project link + db push flow, and optional DB password for non-interactive migration push. |
+| DLE-2026-02-14-047 | 2026-02-14 | DL-2026-02-14-063 | verified | `bash scripts/phase5_validate.sh --project-ref l... --skip-secrets --dry-run` | builder | Verified updated helper emits correct modern CLI command sequence (link -> db push -> function deploy), using npx fallback in this runtime. |
 
 ## Event template (copy/paste)
 
