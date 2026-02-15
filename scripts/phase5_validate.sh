@@ -16,7 +16,7 @@ SKIP_DB_PUSH=false
 SKIP_DEPLOY=false
 SKIP_SECRETS=false
 DRY_RUN=false
-SUPABASE_CLI=""
+SUPABASE_CLI=()
 
 EXPECTED_BRANCH="cursor/locked-decision-ledger-cbef"
 
@@ -72,26 +72,28 @@ require_cmd() {
 
 run_cmd() {
   if [[ "${DRY_RUN}" == "true" ]]; then
-    printf "[phase5][dry-run] %s\n" "$*"
+    printf "[phase5][dry-run] "
+    printf "%q " "$@"
+    printf "\n"
   else
-    eval "$@"
+    "$@"
   fi
 }
 
 resolve_supabase_cli() {
   if command -v supabase >/dev/null 2>&1; then
-    SUPABASE_CLI="supabase"
+    SUPABASE_CLI=(supabase)
     return
   fi
 
   if command -v npx >/dev/null 2>&1; then
-    SUPABASE_CLI="npx --yes supabase"
+    SUPABASE_CLI=(npx --yes supabase)
     return
   fi
 
   if [[ "${DRY_RUN}" == "true" ]]; then
     warn "Supabase CLI not found; dry-run will still print commands."
-    SUPABASE_CLI="supabase"
+    SUPABASE_CLI=(supabase)
     return
   fi
 
@@ -177,17 +179,21 @@ fi
 log "Repository root: ${REPO_ROOT}"
 log "Project ref: ${PROJECT_REF}"
 log "Dry run: ${DRY_RUN}"
-log "Supabase CLI: ${SUPABASE_CLI}"
+log "Supabase CLI: ${SUPABASE_CLI[*]}"
 
 if [[ "${SKIP_DB_PUSH}" == "false" ]]; then
   log "Linking project for db push..."
-  run_cmd "${SUPABASE_CLI} link --project-ref \"${PROJECT_REF}\""
+  if [[ -n "${DB_PASSWORD}" ]]; then
+    run_cmd "${SUPABASE_CLI[@]}" link --project-ref "${PROJECT_REF}" --password "${DB_PASSWORD}"
+  else
+    run_cmd "${SUPABASE_CLI[@]}" link --project-ref "${PROJECT_REF}"
+  fi
 
   log "Applying DB migrations (supabase db push)..."
   if [[ -n "${DB_PASSWORD}" ]]; then
-    run_cmd "${SUPABASE_CLI} db push --linked --password \"${DB_PASSWORD}\""
+    run_cmd "${SUPABASE_CLI[@]}" db push --linked --password "${DB_PASSWORD}"
   else
-    run_cmd "${SUPABASE_CLI} db push --linked"
+    run_cmd "${SUPABASE_CLI[@]}" db push --linked
   fi
 else
   log "Skipping DB push (--skip-db-push)."
@@ -195,20 +201,20 @@ fi
 
 if [[ "${SKIP_DEPLOY}" == "false" ]]; then
   log "Deploying stripe-webhook (no JWT verify)..."
-  run_cmd "${SUPABASE_CLI} functions deploy stripe-webhook --project-ref \"${PROJECT_REF}\" --no-verify-jwt"
+  run_cmd "${SUPABASE_CLI[@]}" functions deploy stripe-webhook --project-ref "${PROJECT_REF}" --no-verify-jwt
 
   log "Deploying create-stripe-checkout-session (JWT verify enabled)..."
-  run_cmd "${SUPABASE_CLI} functions deploy create-stripe-checkout-session --project-ref \"${PROJECT_REF}\""
+  run_cmd "${SUPABASE_CLI[@]}" functions deploy create-stripe-checkout-session --project-ref "${PROJECT_REF}"
 
   log "Deploying create-stripe-portal-session (JWT verify enabled)..."
-  run_cmd "${SUPABASE_CLI} functions deploy create-stripe-portal-session --project-ref \"${PROJECT_REF}\""
+  run_cmd "${SUPABASE_CLI[@]}" functions deploy create-stripe-portal-session --project-ref "${PROJECT_REF}"
 else
   log "Skipping function deploy (--skip-deploy)."
 fi
 
 if [[ "${SKIP_SECRETS}" == "false" ]]; then
   log "Updating function secrets..."
-  run_cmd "${SUPABASE_CLI} secrets set STRIPE_SECRET_KEY=\"${STRIPE_SECRET_KEY}\" STRIPE_WEBHOOK_SECRET=\"${STRIPE_WEBHOOK_SECRET}\" APP_URL=\"${APP_URL}\" --project-ref \"${PROJECT_REF}\""
+  run_cmd "${SUPABASE_CLI[@]}" secrets set "STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}" "STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}" "APP_URL=${APP_URL}" --project-ref "${PROJECT_REF}"
 else
   log "Skipping secret updates (--skip-secrets)."
 fi

@@ -81,6 +81,11 @@ BEGIN
   -- Idempotency guard: if already inactive/disabled, do not mutate evidence
   -- fields and do not append duplicate deactivation log entries.
   IF v_row.is_active IS NOT TRUE THEN
+    -- Disabling the add-on should also stop outbound SMS deliveries.
+    UPDATE public.tenant_company_settings
+       SET sms_enabled = false
+     WHERE tenant_id = v_tenant_id;
+
     RETURN jsonb_build_object(
       'is_active', v_row.is_active,
       'activation_status', v_row.activation_status,
