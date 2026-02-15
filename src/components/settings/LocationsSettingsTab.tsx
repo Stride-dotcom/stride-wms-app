@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import * as XLSX from 'xlsx';
 import { Location } from '@/hooks/useLocations';
 import { Warehouse } from '@/hooks/useWarehouses';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -49,6 +50,10 @@ import {
   normalizeLocationType,
   parseDisplayLocationType,
 } from '@/lib/locationTypeUtils';
+import {
+  LOCATION_LIST_COLUMNS,
+  type LocationListColumnKey,
+} from '@/lib/locationListColumns';
 
 interface LocationsSettingsTabProps {
   locations: Location[];
@@ -319,22 +324,16 @@ export function LocationsSettingsTab({
   };
 
   const handleDownloadTemplate = () => {
-    const template = [
-      'location_name,warehouse_name,type,status',
-      'A1.1,,bin,active',
-      'BAY-01,,bay,active',
-      'DOCK-01,,dock,active',
-      'AREA-A,,area,active',
-    ].join('\n');
-    const blob = new Blob([template], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'locations-template.csv';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    const headerRow = LOCATION_LIST_COLUMNS.map((column) => column.label);
+    const exampleRow = LOCATION_LIST_COLUMNS.map((column) => column.templateExample);
+    const blankRow = LOCATION_LIST_COLUMNS.map(() => '');
+
+    const worksheet = XLSX.utils.aoa_to_sheet([headerRow, exampleRow, blankRow]);
+    worksheet['!cols'] = LOCATION_LIST_COLUMNS.map(() => ({ wch: 18 }));
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Locations');
+    XLSX.writeFile(workbook, 'locations-template.xlsx');
   };
 
   const handleExportLocations = () => {
@@ -388,6 +387,53 @@ export function LocationsSettingsTab({
       return legacyLocationType as string;
     }
     return location.type;
+  };
+
+  const getLocationColumnCellClassName = (columnKey: LocationListColumnKey): string => {
+    switch (columnKey) {
+      case 'code':
+        return 'font-mono text-sm font-medium';
+      case 'warehouse':
+      case 'capacity':
+        return 'text-sm text-muted-foreground';
+      case 'sq_ft':
+      case 'cu_ft':
+        return 'text-right text-sm text-muted-foreground';
+      default:
+        return '';
+    }
+  };
+
+  const getLocationColumnValue = (
+    location: Location,
+    warehouseName: string,
+    isActive: boolean,
+    columnKey: LocationListColumnKey
+  ) => {
+    switch (columnKey) {
+      case 'code':
+        return location.code;
+      case 'name':
+        return location.name || '—';
+      case 'type':
+        return getTypeBadge(getDisplayType(location));
+      case 'warehouse':
+        return warehouseName;
+      case 'capacity': {
+        const capacity = (location as unknown as { capacity_cuft?: number | null }).capacity_cuft ?? location.capacity_cu_ft;
+        return capacity != null ? `${Number(capacity).toFixed(1)} cuft` : '—';
+      }
+      case 'status':
+        return getStatusBadge(location.status, isActive);
+      case 'sq_ft':
+        return location.capacity_sq_ft != null ? location.capacity_sq_ft : '—';
+      case 'cu_ft': {
+        const cuFt = location.capacity_cu_ft ?? (location as unknown as { capacity_cuft?: number | null }).capacity_cuft;
+        return cuFt != null ? cuFt : '—';
+      }
+      default:
+        return '—';
+    }
   };
 
   const activeCount = locations.filter(l => (l as any).is_active !== false).length;
@@ -601,14 +647,11 @@ export function LocationsSettingsTab({
                           onCheckedChange={toggleSelectAll}
                         />
                       </TableHead>
-                      <TableHead>Code</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Warehouse</TableHead>
-                      <TableHead>Capacity</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Sq Ft</TableHead>
-                      <TableHead className="text-right">Cu Ft</TableHead>
+                      {LOCATION_LIST_COLUMNS.map((column) => (
+                        <TableHead key={column.key} className={column.tableHeadClassName}>
+                          {column.label}
+                        </TableHead>
+                      ))}
                       <TableHead className="w-[60px]"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -628,28 +671,19 @@ export function LocationsSettingsTab({
                               onCheckedChange={() => toggleSelect(location.id)}
                             />
                           </TableCell>
-                          <TableCell className="font-mono text-sm font-medium">
-                            {location.code}
-                          </TableCell>
-                          <TableCell>{location.name || '—'}</TableCell>
-                          <TableCell>{getTypeBadge(getDisplayType(location))}</TableCell>
-                          <TableCell className="text-muted-foreground text-sm">
-                            {warehouse?.name || '—'}
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {((location as any).capacity_cuft ?? location.capacity_cu_ft) != null
-                              ? `${Number((location as any).capacity_cuft ?? location.capacity_cu_ft).toFixed(1)} cuft`
-                              : '\u2014'}
-                          </TableCell>
-                          <TableCell>{getStatusBadge(location.status, isActive)}</TableCell>
-                          <TableCell className="text-right text-sm text-muted-foreground">
-                            {location.capacity_sq_ft != null ? location.capacity_sq_ft : '—'}
-                          </TableCell>
-                          <TableCell className="text-right text-sm text-muted-foreground">
-                            {(location.capacity_cu_ft ?? (location as any).capacity_cuft) != null
-                              ? (location.capacity_cu_ft ?? (location as any).capacity_cuft)
-                              : '—'}
-                          </TableCell>
+                          {LOCATION_LIST_COLUMNS.map((column) => (
+                            <TableCell
+                              key={column.key}
+                              className={getLocationColumnCellClassName(column.key)}
+                            >
+                              {getLocationColumnValue(
+                                location,
+                                warehouse?.name || '—',
+                                isActive,
+                                column.key
+                              )}
+                            </TableCell>
+                          ))}
                           <TableCell onClick={(e) => e.stopPropagation()}>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>

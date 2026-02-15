@@ -20,8 +20,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { parseFileToRows, canonicalizeHeader } from '@/lib/importUtils';
+import { parseFileToRows, canonicalizeHeader, parseNumber } from '@/lib/importUtils';
 import { parseDisplayLocationType, toStoredLocationType } from '@/lib/locationTypeUtils';
+import {
+  LOCATION_LIST_COLUMNS,
+  type LocationListColumnKey,
+} from '@/lib/locationListColumns';
 
 interface CSVImportDialogProps {
   open: boolean;
@@ -35,6 +39,10 @@ interface ParsedLocation {
   code: string;
   name: string;
   type: string;
+  warehouseName: string;
+  status: 'active' | 'inactive' | 'full';
+  capacitySqFt: number | null;
+  capacityCuFt: number | null;
 }
 
 interface ImportResult {
@@ -43,15 +51,37 @@ interface ImportResult {
   errors: string[];
 }
 
-// Header aliases for location imports
-const LOCATION_HEADER_ALIASES: Record<string, string> = {
-  location_name: 'code',
-  location_code: 'code',
-  location: 'code',
+const LIST_COLUMN_KEY_TO_IMPORT_FIELD: Record<LocationListColumnKey, string> = {
   code: 'code',
   name: 'name',
   type: 'type',
+  warehouse: 'warehouse_name',
+  capacity: 'capacity',
+  status: 'status',
+  sq_ft: 'capacity_sq_ft',
+  cu_ft: 'capacity_cu_ft',
+};
+
+const LOCATION_LIST_COLUMN_ALIASES = LOCATION_LIST_COLUMNS.reduce<Record<string, string>>((acc, column) => {
+  acc[canonicalizeHeader(column.label)] = LIST_COLUMN_KEY_TO_IMPORT_FIELD[column.key];
+  return acc;
+}, {});
+
+// Header aliases for location imports (includes list-column labels + legacy aliases)
+const LOCATION_HEADER_ALIASES: Record<string, string> = {
+  ...LOCATION_LIST_COLUMN_ALIASES,
+  location_name: 'code',
+  location_code: 'code',
+  location: 'code',
   location_type: 'type',
+  warehouse_name: 'warehouse_name',
+  capacity_cuft: 'capacity_cu_ft',
+  capacity_cu_ft: 'capacity_cu_ft',
+  capacity_sq_ft: 'capacity_sq_ft',
+  square_feet: 'capacity_sq_ft',
+  square_footage: 'capacity_sq_ft',
+  cubic_feet: 'capacity_cu_ft',
+  cubic_footage: 'capacity_cu_ft',
 };
 
 function detectLocationType(code: string): string {
@@ -100,6 +130,11 @@ async function parseFile(file: File): Promise<ParsedLocation[]> {
     let codeIdx = mappedHeaders.indexOf('code');
     const nameIdx = mappedHeaders.indexOf('name');
     const typeIdx = mappedHeaders.indexOf('type');
+    const warehouseNameIdx = mappedHeaders.indexOf('warehouse_name');
+    const statusIdx = mappedHeaders.indexOf('status');
+    const capacityIdx = mappedHeaders.indexOf('capacity');
+    const capacitySqFtIdx = mappedHeaders.indexOf('capacity_sq_ft');
+    const capacityCuFtIdx = mappedHeaders.indexOf('capacity_cu_ft');
     
     // If no code column found, use first column
     if (codeIdx === -1) {
@@ -116,8 +151,25 @@ async function parseFile(file: File): Promise<ParsedLocation[]> {
       const typeValue = typeIdx >= 0 ? String(row[typeIdx] ?? '').trim().toLowerCase() : '';
       const parsedType = parseDisplayLocationType(typeValue);
       const type = parsedType || detectLocationType(code);
-      
-      locations.push({ code, name, type });
+
+      const rawWarehouseName = warehouseNameIdx >= 0 ? String(row[warehouseNameIdx] ?? '').trim() : '';
+      const rawStatus = statusIdx >= 0 ? String(row[statusIdx] ?? '').trim().toLowerCase() : '';
+      const status: 'active' | 'inactive' | 'full' =
+        rawStatus === 'inactive' || rawStatus === 'full' ? rawStatus : 'active';
+      const capacitySqFt = capacitySqFtIdx >= 0 ? parseNumber(row[capacitySqFtIdx]) : null;
+      const explicitCuFt = capacityCuFtIdx >= 0 ? parseNumber(row[capacityCuFtIdx]) : null;
+      const fallbackCapacity = capacityIdx >= 0 ? parseNumber(row[capacityIdx]) : null;
+      const capacityCuFt = explicitCuFt ?? fallbackCapacity;
+
+      locations.push({
+        code,
+        name,
+        type,
+        warehouseName: rawWarehouseName,
+        status,
+        capacitySqFt,
+        capacityCuFt,
+      });
     }
   } catch (error) {
     console.error('Error parsing file:', error);
@@ -199,18 +251,53 @@ export function CSVImportDialog({
     let successCount = 0;
     let failedCount = 0;
     const errors: string[] = [];
+    const warehouseIdByName = new Map(
+      warehouses.map((warehouse) => [warehouse.name.trim().toLowerCase(), warehouse.id])
+    );
 
     try {
       for (let i = 0; i < parsedLocations.length; i += batchSize) {
         const batch = parsedLocations.slice(i, i + batchSize);
-        
-        const insertData = batch.map((loc) => ({
-          code: loc.code,
-          name: loc.name || null,
-          type: toStoredLocationType(loc.type),
-          warehouse_id: selectedWarehouse,
-          status: 'active',
-        }));
+        const insertData: Array<{
+          code: string;
+          name: string | null;
+          type: string;
+          warehouse_id: string;
+          status: 'active' | 'inactive' | 'full';
+          capacity_sq_ft: number | null;
+          capacity_cu_ft: number | null;
+          capacity_cuft: number | null;
+        }> = [];
+
+        batch.forEach((loc, indexInBatch) => {
+          const resolvedWarehouseId = loc.warehouseName
+            ? warehouseIdByName.get(loc.warehouseName.trim().toLowerCase())
+            : selectedWarehouse;
+
+          if (!resolvedWarehouseId) {
+            failedCount += 1;
+            errors.push(
+              `Row ${i + indexInBatch + 2}: Warehouse "${loc.warehouseName}" was not found.`
+            );
+            return;
+          }
+
+          insertData.push({
+            code: loc.code,
+            name: loc.name || null,
+            type: toStoredLocationType(loc.type),
+            warehouse_id: resolvedWarehouseId,
+            status: loc.status,
+            capacity_sq_ft: loc.capacitySqFt,
+            capacity_cu_ft: loc.capacityCuFt,
+            capacity_cuft: loc.capacityCuFt,
+          });
+        });
+
+        if (insertData.length === 0) {
+          setProgress(Math.round(((i + batch.length) / parsedLocations.length) * 100));
+          continue;
+        }
 
         const { data, error } = await supabase
           .from('locations')
@@ -218,11 +305,11 @@ export function CSVImportDialog({
           .select();
 
         if (error) {
-          failedCount += batch.length;
+          failedCount += insertData.length;
           errors.push(`Batch ${Math.floor(i / batchSize) + 1}: ${error.message}`);
         } else {
           successCount += data?.length || 0;
-          failedCount += batch.length - (data?.length || 0);
+          failedCount += insertData.length - (data?.length || 0);
         }
 
         setProgress(Math.round(((i + batch.length) / parsedLocations.length) * 100));
