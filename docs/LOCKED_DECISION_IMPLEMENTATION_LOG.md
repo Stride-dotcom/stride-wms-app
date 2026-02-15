@@ -70,6 +70,7 @@ Last updated: 2026-02-14
 | DLE-2026-02-14-048 | 2026-02-14 | DL-2026-02-14-068,DL-2026-02-14-069 | completed | Added `supabase/migrations/20260215022000_sms_addon_deactivate_active_guard.sql` | builder | Patched `rpc_deactivate_sms_addon` with active-state guard so already-inactive requests do not mutate evidence fields or append duplicate `deactivated` audit events. |
 | DLE-2026-02-14-049 | 2026-02-14 | DL-2026-02-14-068,DL-2026-02-14-069 | verified | `npx tsc --noEmit`, `npm run build` (post commit `ca2f1da`) | builder | Static validation passed after deactivation guard patch; no frontend regressions detected from migration-only function update. |
 | DLE-2026-02-14-050 | 2026-02-14 | DL-2026-02-14-066,DL-2026-02-14-068 | completed | Added `supabase/migrations/20260215023000_sms_addon_activation_readiness_guard.sql` | builder | Added server-side activation readiness guard so direct RPC calls cannot bypass required SMS onboarding fields (sender, legal URLs, compliance copy, use-case/sample, sms_enabled). |
+| DLE-2026-02-14-051 | 2026-02-14 | DL-2026-02-14-066,DL-2026-02-14-068 | verified | `npx tsc --noEmit`, `npm run build` (post commit `0fd5e83`) | builder | Static validation passed after activation readiness guard patch; migration-only function update introduced no frontend/type regressions. |
 
 ## Event template (copy/paste)
 
