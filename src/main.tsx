@@ -44,11 +44,15 @@ initErrorTracker({
 });
 
 const pathname = window.location.pathname;
-const isPublicSmsOptInPath =
-  pathname === '/sms/opt-in' ||
-  pathname.startsWith('/sms/opt-in/') ||
-  pathname === '/sms-opt-in' ||
-  pathname.startsWith('/sms-opt-in/');
-const RootApp = isPublicSmsOptInPath ? PublicSmsOptInApp : App;
+const isPublicSmsPath =
+  pathname === "/sms/opt-in" ||
+  pathname.startsWith("/sms/opt-in/") ||
+  pathname === "/sms/opt-out" ||
+  pathname.startsWith("/sms/opt-out/") ||
+  pathname === "/sms-opt-in" ||
+  pathname.startsWith("/sms-opt-in/") ||
+  pathname === "/sms-opt-out" ||
+  pathname.startsWith("/sms-opt-out/");
+const RootApp = isPublicSmsPath ? PublicSmsOptInApp : App;
 
 createRoot(document.getElementById("root")!).render(<RootApp />);

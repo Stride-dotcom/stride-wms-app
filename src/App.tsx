@@ -56,6 +56,7 @@ import QuoteAcceptance from "./pages/QuoteAcceptance";
 import ClientQuoteReview from "./pages/ClientQuoteReview";
 import ClientActivate from "./pages/ClientActivate";
 import SmsOptIn from "./pages/SmsOptIn";
+import SmsOptOut from "./pages/SmsOptOut";
 import LandingPage from "./pages/LandingPage";
 import SmsInfoPage from "./pages/SmsInfoPage";
 import ClaimAcceptance from "./pages/ClaimAcceptance";
@@ -179,8 +180,12 @@ const App = () => (
             <Route path="/activate" element={<ClientActivate />} />
             <Route path="/sms-opt-in" element={<SmsOptIn />} />
             <Route path="/sms-opt-in/:tenantId" element={<SmsOptIn />} />
+            <Route path="/sms-opt-out" element={<SmsOptOut />} />
+            <Route path="/sms-opt-out/:tenantId" element={<SmsOptOut />} />
             <Route path="/sms/opt-in" element={<SmsOptIn />} />
             <Route path="/sms/opt-in/:tenantId" element={<SmsOptIn />} />
+            <Route path="/sms/opt-out" element={<SmsOptOut />} />
+            <Route path="/sms/opt-out/:tenantId" element={<SmsOptOut />} />
             <Route path="/client/login" element={<ClientLogin />} />
             <Route path="/client" element={<ProtectedRoute><RequireRole role="client_user"><ClientDashboard /></RequireRole></ProtectedRoute>} />
             <Route path="/client/items" element={<ProtectedRoute><RequireRole role="client_user"><ClientItems /></RequireRole></ProtectedRoute>} />
