@@ -201,6 +201,7 @@ export default function Billing() {
       const { data, error } = await (supabase as any)
         .from('tenant_subscription_invoices')
         .select('*')
+        .eq('tenant_id', profile.tenant_id)
         .order('stripe_created_at', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(30);
