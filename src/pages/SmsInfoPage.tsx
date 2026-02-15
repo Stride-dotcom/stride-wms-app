@@ -1,0 +1,142 @@
+import { Link } from 'react-router-dom';
+import { ArrowLeft, MessageSquare } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+
+const sections = [
+  {
+    title: 'Program Description',
+    content:
+      'StrideWMS sends SMS notifications on behalf of warehouse operators to their clients and contacts. Messages include shipment status updates (received, released, in-transit), inventory alerts, account notifications, task updates, and claim status changes.',
+  },
+  {
+    title: 'Who Sends These Messages',
+    content:
+      'Messages are sent by StrideWMS, a warehouse management platform, on behalf of third-party logistics (3PL) warehouse operators who use our system to manage client communications.',
+  },
+  {
+    title: 'Message Frequency',
+    content:
+      'Message frequency varies based on warehouse activity. You may receive messages when shipments are received or released, when inventory changes occur, or when action is required on your account. Typical users receive 1–10 messages per week.',
+  },
+  {
+    title: 'Message & Data Rates',
+    content:
+      'Message and data rates may apply. Please contact your wireless carrier for details about your messaging plan.',
+  },
+  {
+    title: 'How to Opt In',
+    content:
+      'You may opt in to receive SMS notifications through a web-based form provided by your warehouse operator. By providing your phone number and checking the consent box, you agree to receive text messages from StrideWMS on behalf of your warehouse provider. Consent to receive text messages is not a condition of any purchase or service.',
+  },
+  {
+    title: 'How to Opt Out',
+    content:
+      'You can opt out at any time by replying STOP to any message you receive from us. After opting out, you will receive one final confirmation message and will no longer receive SMS notifications. You can also contact your warehouse operator directly to remove your number from their notification list.',
+  },
+  {
+    title: 'How to Get Help',
+    content:
+      'For help, reply HELP to any message you receive, or contact your warehouse operator directly. You can also reach StrideWMS support at support@stridewms.com.',
+  },
+  {
+    title: 'Privacy Policy',
+    content:
+      'We respect your privacy. Phone numbers collected for SMS notifications are used solely for the purpose of sending warehouse-related alerts. We do not sell, rent, or share your phone number with third parties for marketing purposes. For our full privacy policy, please visit our website or contact support.',
+  },
+  {
+    title: 'Terms & Conditions',
+    content:
+      'By opting in to SMS notifications, you agree to receive automated text messages related to your warehouse account. These messages are transactional and operational in nature. Standard messaging rates apply. You may opt out at any time by replying STOP.',
+  },
+  {
+    title: 'Carrier Disclaimer',
+    content:
+      'Carriers are not liable for delayed or undelivered messages. Message delivery is subject to your wireless carrier\'s network availability and coverage area.',
+  },
+  {
+    title: 'Supported Carriers',
+    content:
+      'SMS notifications are supported on all major US carriers including AT&T, Verizon, T-Mobile, Sprint, and many regional carriers.',
+  },
+];
+
+export default function SmsInfoPage() {
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Header */}
+      <header className="border-b border-border/50 bg-card/80 backdrop-blur-sm sticky top-0 z-50">
+        <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
+          <Link to="/welcome">
+            <Button variant="ghost" size="sm">
+              <ArrowLeft className="mr-1 h-4 w-4" /> Back
+            </Button>
+          </Link>
+          <span className="text-xl font-bold tracking-tight text-primary">StrideWMS</span>
+          <Link to="/auth">
+            <Button size="sm">Sign In</Button>
+          </Link>
+        </div>
+      </header>
+
+      {/* Hero */}
+      <section className="py-16 px-6">
+        <div className="max-w-3xl mx-auto text-center">
+          <MessageSquare className="h-12 w-12 text-primary mx-auto mb-4" />
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
+            SMS Notification Program
+          </h1>
+          <p className="text-muted-foreground max-w-xl mx-auto">
+            Information about our text message notification program, including how to opt in,
+            opt out, and your rights as a message recipient.
+          </p>
+        </div>
+      </section>
+
+      {/* Content */}
+      <section className="pb-20 px-6">
+        <div className="max-w-3xl mx-auto space-y-8">
+          {sections.map((s) => (
+            <div key={s.title} className="rounded-2xl border border-border/50 bg-card p-6">
+              <h2 className="font-semibold text-lg mb-3">{s.title}</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">{s.content}</p>
+            </div>
+          ))}
+
+          {/* Quick Reference */}
+          <div className="rounded-2xl border-2 border-primary/20 bg-primary/5 p-6">
+            <h2 className="font-semibold text-lg mb-4">Quick Reference</h2>
+            <div className="grid sm:grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="font-medium">To opt out:</span>
+                <p className="text-muted-foreground">Reply <strong>STOP</strong> to any message</p>
+              </div>
+              <div>
+                <span className="font-medium">To get help:</span>
+                <p className="text-muted-foreground">Reply <strong>HELP</strong> to any message</p>
+              </div>
+              <div>
+                <span className="font-medium">Support email:</span>
+                <p className="text-muted-foreground">support@stridewms.com</p>
+              </div>
+              <div>
+                <span className="font-medium">Message rates:</span>
+                <p className="text-muted-foreground">Standard rates may apply</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-border/50 py-8 px-6">
+        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
+          <span>&copy; {new Date().getFullYear()} StrideWMS. All rights reserved.</span>
+          <div className="flex gap-6">
+            <Link to="/welcome" className="hover:text-foreground transition-colors">Home</Link>
+            <Link to="/auth" className="hover:text-foreground transition-colors">Sign In</Link>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}

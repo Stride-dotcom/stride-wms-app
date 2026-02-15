@@ -27,8 +27,8 @@ Billing visibility decision captured: `DL-2026-02-14-067` (accepted) requires su
 SMS terms audit decision captured: `DL-2026-02-14-068` (accepted) requires version/time/user/ip/user-agent/source capture.
 SMS lifecycle control decision captured: `DL-2026-02-14-069` (accepted) allows tenant-admin self-deactivation in Settings.
 Historical visibility decision captured: `DL-2026-02-14-070` (accepted) keeps SMS billing/report history visible as read-only after deactivation.
-Reactivation consent decision captured: `DL-2026-02-14-071` (accepted) requires terms re-acceptance on every SMS reactivation.
-Terms-version backlog decision captured: `DL-2026-02-14-072` (accepted) keeps `sms-addon-v1` for now and defers configurable versioning to Phase 6.
+Reactivation consent decision captured: `DL-2026-02-14-089` (accepted) requires terms re-acceptance on every SMS reactivation.
+Terms-version backlog decision captured: `DL-2026-02-14-090` (accepted) keeps `sms-addon-v1` for now and defers configurable versioning to Phase 6.
 
 ## Current implementation snapshot
 
@@ -56,7 +56,7 @@ Confirmed present in repo:
 | subscription.updated resolution fallback customer->subscription | DL-2026-02-14-058 | aligned | `stripe-webhook` now resolves customer first, then subscription fallback |
 | Payment mark RPC identity contract | DL-2026-02-14-057 | aligned | Migration + webhook use `p_stripe_subscription_id` |
 | SMS terms acceptance audit fields | DL-2026-02-14-068 | aligned | New SMS activation migration + RPC capture required terms evidence fields |
-| SMS reactivation terms re-acceptance | DL-2026-02-14-071 | aligned | Settings activation flow requires terms checkbox each activation attempt and records fresh acceptance timestamp |
+| SMS reactivation terms re-acceptance | DL-2026-02-14-089 | aligned | Settings activation flow requires terms checkbox each activation attempt and records fresh acceptance timestamp |
 | Settings-based SMS activation flow | DL-2026-02-14-066 | aligned | `SmsAddonActivationCard` enforces readiness + explicit terms confirmation |
 | Billing SMS visibility summary | DL-2026-02-14-067 | aligned | Billing page now includes consolidated subscription + SMS add-on summary card |
 | Fail-open gate behavior when row missing | DL-2026-02-14-017/037 | aligned | `rpc_get_my_subscription_gate` returns active state when row not found |
@@ -76,7 +76,7 @@ Current cloud-runner blocker:
 
 ## Deferred to Phase 6 backlog
 
-- `DL-2026-02-14-072`: Admin-dev configurable SMS `terms_version` management (current state remains fixed at `sms-addon-v1`).
+- `DL-2026-02-14-090`: Admin-dev configurable SMS `terms_version` management (current state remains fixed at `sms-addon-v1`).
 
 Execution checklist:
 - `docs/PHASE5_STRIPE_CLI_VALIDATION_CHECKLIST.md`

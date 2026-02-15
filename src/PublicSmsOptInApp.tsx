@@ -9,6 +9,8 @@ export default function PublicSmsOptInApp() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/sms-opt-in" element={<SmsOptIn />} />
+        <Route path="/sms-opt-in/:tenantId" element={<SmsOptIn />} />
         <Route path="/sms/opt-in" element={<SmsOptIn />} />
         <Route path="/sms/opt-in/:tenantId" element={<SmsOptIn />} />
       </Routes>

@@ -39,11 +39,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Warehouse } from '@/hooks/useWarehouses';
 import { Location } from '@/hooks/useLocations';
+import { DISPLAY_LOCATION_TYPES, toStoredLocationType } from '@/lib/locationTypeUtils';
 
 const locationSchema = z.object({
   code: z.string().min(1, 'Code is required').max(50).regex(/^[A-Z0-9_-]+$/i, 'Code must be alphanumeric with dashes or underscores'),
   name: z.string().optional(),
-  type: z.enum(['zone', 'aisle', 'bay', 'bin', 'shelf', 'release', 'dock']),
+  type: z.string().min(1, 'Type is required'),
   warehouse_id: z.string().min(1, 'Warehouse is required'),
   parent_location_id: z.string().optional(),
   capacity: z.number().optional(),
@@ -65,14 +66,15 @@ interface LocationDialogProps {
 }
 
 const LOCATION_TYPES = [
-  { value: 'zone', label: 'Zone', description: 'Large area of the warehouse' },
   { value: 'aisle', label: 'Aisle', description: 'Row between shelving units' },
   { value: 'bay', label: 'Bay', description: 'Section of an aisle' },
   { value: 'shelf', label: 'Shelf', description: 'Individual shelf level' },
   { value: 'bin', label: 'Bin', description: 'Specific storage location' },
   { value: 'dock', label: 'Dock', description: 'Receiving or shipping dock' },
-  { value: 'release', label: 'Release', description: 'Items moved here are automatically released' },
+  { value: 'area', label: 'Area', description: 'General storage area grouping' },
 ];
+
+const SELECTABLE_LOCATION_TYPES = new Set<string>(DISPLAY_LOCATION_TYPES);
 
 /** Convert total inches to { ft, inches } for display. Returns undefined pair if null. */
 function decomposeInches(totalIn: number | null | undefined): { ft: number | undefined; inches: number | undefined } {
@@ -125,11 +127,29 @@ export function LocationDialog({
   });
 
   const selectedWarehouseId = form.watch('warehouse_id');
+  const selectedType = form.watch('type');
 
   // Filter parent locations to same warehouse
   const parentLocationOptions = locations.filter(
     (l) => l.warehouse_id === selectedWarehouseId && l.id !== locationId
   );
+
+  const typeOptions = useMemo(() => {
+    if (!selectedType || SELECTABLE_LOCATION_TYPES.has(selectedType)) {
+      return LOCATION_TYPES;
+    }
+    const legacyLabel = selectedType
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+    return [
+      ...LOCATION_TYPES,
+      {
+        value: selectedType,
+        label: `${legacyLabel} (Legacy)`,
+        description: 'Legacy location type preserved from existing data',
+      },
+    ];
+  }, [selectedType]);
 
   // Live capacity computations
   const lengthTotal = composeTotalInches(lengthFt, lengthInField);
@@ -189,12 +209,12 @@ export function LocationDialog({
       form.reset({
         code: data.code,
         name: data.name || '',
-        type: data.type as 'zone' | 'aisle' | 'bay' | 'bin' | 'shelf' | 'release' | 'dock',
+        type: data.type || 'bin',
         warehouse_id: data.warehouse_id,
         parent_location_id: data.parent_location_id || 'none',
         capacity: data.capacity ? Number(data.capacity) : undefined,
         capacity_sq_ft: data.capacity_sq_ft ? Number(data.capacity_sq_ft) : undefined,
-        capacity_cu_ft: data.capacity_cu_ft ? Number(data.capacity_cu_ft) : undefined,
+        capacity_cu_ft: data.capacity_cu_ft ? Number(data.capacity_cu_ft) : data.capacity_cuft ? Number(data.capacity_cuft) : undefined,
         status: data.status as 'active' | 'inactive' | 'full',
       });
 
@@ -240,16 +260,26 @@ export function LocationDialog({
 
       // If any dim is missing → send NULL for all three
       const allDimsPresent = lenIn != null && widIn != null && htIn != null;
+      const computedSqFt = lenIn != null && widIn != null
+        ? Number(((lenIn * widIn) / 144).toFixed(2))
+        : null;
+      const computedCuFt = allDimsPresent
+        ? Number(((lenIn * widIn * htIn) / 1728).toFixed(2))
+        : null;
+      const resolvedCapacitySqFt = data.capacity_sq_ft ?? computedSqFt;
+      const resolvedCapacityCuFt = data.capacity_cu_ft ?? computedCuFt;
+      const storedType = toStoredLocationType(data.type);
 
       const locationData: Record<string, unknown> = {
         code: data.code,
         name: data.name || null,
-        type: data.type,
+        type: storedType,
         warehouse_id: data.warehouse_id,
         parent_location_id: data.parent_location_id === 'none' ? null : data.parent_location_id || null,
         capacity: data.capacity || null,
-        capacity_sq_ft: data.capacity_sq_ft ?? null,
-        capacity_cu_ft: data.capacity_cu_ft ?? null,
+        capacity_sq_ft: resolvedCapacitySqFt ?? null,
+        capacity_cu_ft: resolvedCapacityCuFt ?? null,
+        capacity_cuft: resolvedCapacityCuFt ?? null,
         status: data.status,
         length_in: allDimsPresent ? lenIn : null,
         width_in: allDimsPresent ? widIn : null,
@@ -325,7 +355,7 @@ export function LocationDialog({
           <DialogDescription>
             {isEditing
               ? 'Update the location details below.'
-              : 'Create a new zone, aisle, or bin location.'}
+              : 'Create a new storage location.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -394,7 +424,7 @@ export function LocationDialog({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {LOCATION_TYPES.map((type) => (
+                          {typeOptions.map((type) => (
                             <SelectItem key={type.value} value={type.value}>
                               {type.label}
                             </SelectItem>
@@ -414,7 +444,7 @@ export function LocationDialog({
                   <FormItem>
                     <FormLabel>Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Main Storage Zone" {...field} />
+                      <Input placeholder="Aisle A - North" {...field} />
                     </FormControl>
                     <FormDescription>Optional friendly name</FormDescription>
                     <FormMessage />

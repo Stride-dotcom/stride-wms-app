@@ -45,6 +45,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useSubscriptionGate } from '@/hooks/useSubscriptionGate';
 import { useSmsAddonActivation } from '@/hooks/useSmsAddonActivation';
+import { useSmsSenderProvisioning } from '@/hooks/useSmsSenderProvisioning';
 
 interface Account {
   id: string;
@@ -62,6 +63,21 @@ interface TenantSubscriptionSnapshot {
   updated_at: string | null;
 }
 
+interface SubscriptionInvoiceSnapshot {
+  id: string;
+  stripe_invoice_id: string;
+  status: string;
+  currency: string | null;
+  amount_due: number;
+  amount_paid: number;
+  amount_remaining: number;
+  hosted_invoice_url: string | null;
+  invoice_pdf: string | null;
+  stripe_created_at: string | null;
+  due_date: string | null;
+  paid_at: string | null;
+}
+
 const CHARGE_TYPE_OPTIONS = [
   { value: 'tasks', label: 'Task Charges (Receiving, Shipping, Assembly, etc.)' },
   { value: 'custom', label: 'Custom Billing Charges' },
@@ -76,10 +92,16 @@ export default function Billing() {
     data: smsAddonActivation,
     isLoading: smsAddonLoading,
   } = useSmsAddonActivation();
+  const {
+    data: senderProfile,
+    isLoading: senderProfileLoading,
+  } = useSmsSenderProvisioning();
   const { invoices, loading: invoicesLoading, createInvoice, updateInvoiceStatus, refetch: refetchInvoices } = useInvoices();
   const [startingSubscription, setStartingSubscription] = useState(false);
   const [subscriptionSnapshot, setSubscriptionSnapshot] = useState<TenantSubscriptionSnapshot | null>(null);
   const [subscriptionSummaryLoading, setSubscriptionSummaryLoading] = useState(true);
+  const [subscriptionInvoices, setSubscriptionInvoices] = useState<SubscriptionInvoiceSnapshot[]>([]);
+  const [subscriptionInvoicesLoading, setSubscriptionInvoicesLoading] = useState(true);
 
   // Filters and state
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -122,6 +144,10 @@ export default function Billing() {
     void fetchSubscriptionSnapshot();
   }, [profile?.tenant_id]);
 
+  useEffect(() => {
+    void fetchSubscriptionInvoices();
+  }, [profile?.tenant_id]);
+
   const fetchAccounts = async () => {
     if (!profile?.tenant_id) return;
 
@@ -160,6 +186,32 @@ export default function Billing() {
       setSubscriptionSnapshot(null);
     } finally {
       setSubscriptionSummaryLoading(false);
+    }
+  };
+
+  const fetchSubscriptionInvoices = async () => {
+    if (!profile?.tenant_id) {
+      setSubscriptionInvoicesLoading(false);
+      setSubscriptionInvoices([]);
+      return;
+    }
+
+    setSubscriptionInvoicesLoading(true);
+    try {
+      const { data, error } = await (supabase as any)
+        .from('tenant_subscription_invoices')
+        .select('*')
+        .order('stripe_created_at', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+      if (error) throw error;
+      setSubscriptionInvoices((data || []) as SubscriptionInvoiceSnapshot[]);
+    } catch (error) {
+      console.error('Error fetching subscription invoices:', error);
+      setSubscriptionInvoices([]);
+    } finally {
+      setSubscriptionInvoicesLoading(false);
     }
   };
 
@@ -327,9 +379,25 @@ export default function Billing() {
     return `${value.slice(0, 8)}...${value.slice(-6)}`;
   };
 
+  const formatCurrencyAmount = (value: number | null | undefined, currency: string | null | undefined) => {
+    const normalized = Number.isFinite(Number(value)) ? Number(value) : 0;
+    const code = (currency || 'USD').toUpperCase();
+    try {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: code }).format(normalized);
+    } catch {
+      return `$${normalized.toFixed(2)}`;
+    }
+  };
+
   const getSubscriptionStatusBadge = (status: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
       active: 'default',
+      approved: 'default',
+      paid: 'default',
+      open: 'secondary',
+      draft: 'outline',
+      void: 'secondary',
+      uncollectible: 'destructive',
       past_due: 'destructive',
       canceled: 'secondary',
       inactive: 'secondary',
@@ -337,6 +405,11 @@ export default function Billing() {
       disabled: 'destructive',
       paused: 'secondary',
       not_activated: 'outline',
+      not_requested: 'outline',
+      requested: 'secondary',
+      provisioning: 'secondary',
+      pending_verification: 'secondary',
+      rejected: 'destructive',
     };
     return <Badge variant={variants[status] || 'secondary'}>{status}</Badge>;
   };
@@ -354,6 +427,7 @@ export default function Billing() {
   const isNewSubscriber = gate?.status === 'none';
   const baseSubscriptionStatus = subscriptionSnapshot?.status || gate?.status || 'none';
   const smsActivationStatus = smsAddonActivation?.activation_status || 'not_activated';
+  const senderProvisioningStatus = senderProfile?.provisioning_status || 'not_requested';
 
   const handleSubscriptionAction = async () => {
     setStartingSubscription(true);
@@ -417,7 +491,7 @@ export default function Billing() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {subscriptionSummaryLoading || smsAddonLoading ? (
+            {subscriptionSummaryLoading || smsAddonLoading || senderProfileLoading ? (
               <div className="flex items-center justify-center py-8">
                 <MaterialIcon name="progress_activity" size="md" className="animate-spin text-muted-foreground" />
               </div>
@@ -447,6 +521,10 @@ export default function Billing() {
                     {getSubscriptionStatusBadge(smsActivationStatus)}
                   </div>
                   <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Sender Provisioning</p>
+                    {getSubscriptionStatusBadge(senderProvisioningStatus)}
+                  </div>
+                  <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">SMS Terms Version</p>
                     <p className="text-sm font-medium">{smsAddonActivation?.terms_version || '—'}</p>
                   </div>
@@ -459,10 +537,27 @@ export default function Billing() {
                     <p className="text-sm font-medium">{formatSummaryDate(smsAddonActivation?.terms_accepted_at)}</p>
                   </div>
                   <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">SMS Billing Start</p>
+                    <p className="text-sm font-medium">{formatSummaryDate(senderProfile?.billing_start_at)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Assigned Sender Number</p>
+                    <p className="text-sm font-mono">{senderProfile?.twilio_phone_number_e164 || '—'}</p>
+                  </div>
+                  <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">Stripe Customer</p>
                     <p className="text-sm font-mono">{truncateStripeId(subscriptionSnapshot?.stripe_customer_id)}</p>
                   </div>
                 </div>
+
+                {senderProvisioningStatus !== 'approved' && (
+                  <Alert>
+                    <MaterialIcon name="sms_failed" size="sm" />
+                    <AlertDescription className="text-sm">
+                      SMS remains disabled until toll-free sender verification is approved. Complete/request setup in Settings.
+                    </AlertDescription>
+                  </Alert>
+                )}
 
                 {smsActivationStatus === 'disabled' && (
                   <Alert>
@@ -486,6 +581,85 @@ export default function Billing() {
                     </Button>
                   </div>
                 )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MaterialIcon name="receipt_long" size="md" />
+              Subscription Invoices
+            </CardTitle>
+            <CardDescription>
+              Stripe SaaS subscription invoice history for this tenant.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {subscriptionInvoicesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <MaterialIcon name="progress_activity" size="md" className="animate-spin text-muted-foreground" />
+              </div>
+            ) : subscriptionInvoices.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No subscription invoices available yet.
+              </p>
+            ) : (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Invoice Date</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Amount Due</TableHead>
+                      <TableHead>Amount Paid</TableHead>
+                      <TableHead>Due Date</TableHead>
+                      <TableHead>Paid At</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {subscriptionInvoices.map((invoice) => (
+                      <TableRow key={invoice.id}>
+                        <TableCell>{formatSummaryDate(invoice.stripe_created_at)}</TableCell>
+                        <TableCell>{getSubscriptionStatusBadge(invoice.status)}</TableCell>
+                        <TableCell>{formatCurrencyAmount(invoice.amount_due, invoice.currency)}</TableCell>
+                        <TableCell>{formatCurrencyAmount(invoice.amount_paid, invoice.currency)}</TableCell>
+                        <TableCell>{formatSummaryDate(invoice.due_date)}</TableCell>
+                        <TableCell>{formatSummaryDate(invoice.paid_at)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            {invoice.hosted_invoice_url ? (
+                              <Button type="button" size="sm" variant="outline" asChild>
+                                <a href={invoice.hosted_invoice_url} target="_blank" rel="noreferrer">
+                                  <MaterialIcon name="open_in_new" size="sm" className="mr-1" />
+                                  Open
+                                </a>
+                              </Button>
+                            ) : (
+                              <Button type="button" size="sm" variant="outline" disabled>
+                                Open
+                              </Button>
+                            )}
+                            {invoice.invoice_pdf ? (
+                              <Button type="button" size="sm" variant="outline" asChild>
+                                <a href={invoice.invoice_pdf} target="_blank" rel="noreferrer">
+                                  <MaterialIcon name="download" size="sm" className="mr-1" />
+                                  PDF
+                                </a>
+                              </Button>
+                            ) : (
+                              <Button type="button" size="sm" variant="outline" disabled>
+                                PDF
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             )}
           </CardContent>

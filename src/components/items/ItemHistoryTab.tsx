@@ -163,7 +163,7 @@ export function ItemHistoryTab({ itemId }: ItemHistoryTabProps) {
         const exceptionCounts: Record<string, number> = {};
 
         if (shipmentIds.length > 0) {
-          const { data: openExceptions } = await supabase
+          const { data: openExceptions } = await (supabase as any)
             .from('shipment_exceptions')
             .select('shipment_id')
             .in('shipment_id', shipmentIds)

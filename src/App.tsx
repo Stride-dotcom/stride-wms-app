@@ -56,6 +56,8 @@ import QuoteAcceptance from "./pages/QuoteAcceptance";
 import ClientQuoteReview from "./pages/ClientQuoteReview";
 import ClientActivate from "./pages/ClientActivate";
 import SmsOptIn from "./pages/SmsOptIn";
+import LandingPage from "./pages/LandingPage";
+import SmsInfoPage from "./pages/SmsInfoPage";
 import ClaimAcceptance from "./pages/ClaimAcceptance";
 import ClientLogin from "./pages/ClientLogin";
 import ClientDashboard from "./pages/ClientDashboard";
@@ -73,6 +75,8 @@ import PrintPreview from "./pages/PrintPreview";
 import Diagnostics from "./pages/Diagnostics";
 import BotQA from "./pages/admin/BotQA";
 import StripeOps from "./pages/admin/StripeOps";
+import PricingOps from "./pages/admin/PricingOps";
+import SmsSenderOps from "./pages/admin/SmsSenderOps";
 import QACenter from "./pages/QACenter";
 import DecisionLedger from "./pages/DecisionLedger";
 import Messages from "./pages/Messages";
@@ -102,6 +106,8 @@ const App = () => (
           <SidebarProvider>
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/welcome" element={<LandingPage />} />
+            <Route path="/sms" element={<SmsInfoPage />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/subscription/update-payment" element={<ProtectedRoute><SubscriptionUpdatePayment /></ProtectedRoute>} />
             <Route path="/" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'warehouse_user']}><Dashboard /></RequireRole></ProtectedRoute>} />
@@ -159,6 +165,8 @@ const App = () => (
             <Route path="/diagnostics" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'admin_dev']}><Diagnostics /></RequireRole></ProtectedRoute>} />
             <Route path="/admin/bot-qa" element={<ProtectedRoute><RequireRole role={['tenant_admin', 'admin_dev']}><BotQA /></RequireRole></ProtectedRoute>} />
             <Route path="/admin/stripe-ops" element={<ProtectedRoute><RequireRole role={['admin_dev']}><StripeOps /></RequireRole></ProtectedRoute>} />
+            <Route path="/admin/pricing-ops" element={<ProtectedRoute><RequireRole role={['admin_dev']}><PricingOps /></RequireRole></ProtectedRoute>} />
+            <Route path="/admin/sms-sender-ops" element={<ProtectedRoute><RequireRole role={['admin_dev']}><SmsSenderOps /></RequireRole></ProtectedRoute>} />
             <Route path="/qa" element={<ProtectedRoute><QACenter /></ProtectedRoute>} />
             <Route path="/decision-ledger" element={<ProtectedRoute><RequireRole role="admin_dev"><DecisionLedger /></RequireRole></ProtectedRoute>} />
             <Route path="/repair-access" element={<RepairTechAccess />} />
@@ -168,6 +176,7 @@ const App = () => (
             <Route path="/quote/accept" element={<QuoteAcceptance />} />
             <Route path="/activate" element={<ClientActivate />} />
             <Route path="/sms-opt-in" element={<SmsOptIn />} />
+            <Route path="/sms-opt-in/:tenantId" element={<SmsOptIn />} />
             <Route path="/sms/opt-in" element={<SmsOptIn />} />
             <Route path="/sms/opt-in/:tenantId" element={<SmsOptIn />} />
             <Route path="/client/login" element={<ClientLogin />} />

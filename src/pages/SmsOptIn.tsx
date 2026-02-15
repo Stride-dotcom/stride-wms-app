@@ -29,9 +29,10 @@ function normalizePhone(raw: string): string {
 export default function SmsOptIn() {
   const [searchParams] = useSearchParams();
   const { tenantId: tenantIdFromPath } = useParams<{ tenantId: string }>();
-  const tenantId = tenantIdFromPath || searchParams.get('t');
+  const tenantIdFromUrl = tenantIdFromPath || searchParams.get('t');
 
   const [tenantInfo, setTenantInfo] = useState<TenantInfo | null>(null);
+  const [resolvedTenantId, setResolvedTenantId] = useState<string | null>(tenantIdFromUrl);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,21 +45,31 @@ export default function SmsOptIn() {
 
   // Fetch tenant branding info (public - uses edge function)
   useEffect(() => {
-    if (!tenantId) {
-      setError('Missing tenant identifier in the URL. Use /sms/opt-in/<tenant-id> or ?t=<tenant-id>.');
-      setLoading(false);
-      return;
-    }
-
     const fetchTenantInfo = async () => {
       try {
+        setResolvedTenantId(tenantIdFromUrl);
+        setTenantInfo(null);
+        setError(null);
+        setLoading(true);
+        setSuccess(false);
+        setSubmitError(null);
+
+        const host =
+          typeof window !== 'undefined' ? window.location.hostname : undefined;
+
         const { data, error: fnError } = await supabase.functions.invoke('sms-opt-in', {
-          body: { action: 'get_tenant_info', tenant_id: tenantId },
+          body: {
+            action: 'get_tenant_info',
+            tenant_id: tenantIdFromUrl,
+            host,
+          },
         });
 
         if (fnError) throw fnError;
         if (data?.error) throw new Error(data.error);
+        if (!data?.tenant_id) throw new Error('Unable to resolve tenant for this SMS page.');
 
+        setResolvedTenantId(data.tenant_id);
         setTenantInfo(data.tenant);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Unable to load page.';
@@ -69,9 +80,10 @@ export default function SmsOptIn() {
     };
 
     fetchTenantInfo();
-  }, [tenantId]);
+  }, [tenantIdFromUrl]);
 
   const handleSubmit = async () => {
+    const tenantId = tenantIdFromUrl || resolvedTenantId;
     if (!phone.trim() || !agreed || !tenantId) return;
 
     const normalizedPhone = normalizePhone(phone.trim());
@@ -134,7 +146,7 @@ export default function SmsOptIn() {
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground">
-              {error || 'This opt-in page could not be loaded. Please check the URL and try again.'}
+              {error || 'This opt-in page could not be loaded. Check your tenant subdomain or opt-in URL and try again.'}
             </p>
           </CardContent>
         </Card>

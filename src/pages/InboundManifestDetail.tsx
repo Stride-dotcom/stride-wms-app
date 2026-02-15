@@ -161,7 +161,7 @@ export default function InboundManifestDetail() {
         room: item.room || null,
         expected_quantity: item.expected_quantity || 1,
         notes: item.notes || null,
-        status: item.status || 'pending',
+        status: 'pending',
       });
 
       if (error) throw error;

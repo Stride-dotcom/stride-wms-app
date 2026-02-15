@@ -3,6 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { pageTours, deepTours, PageTour, TourStep, TourMode, RoleContext, Priority, ERROR_CODES, ErrorCode, shouldCheckScrollBuffer, shouldFailRun, getDeepToursOrdered } from './tours';
 import { getFileHintsForRoute, getAllRoutes } from './routeToFileHints';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { randomUUID } from 'node:crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -20,14 +21,99 @@ const QA_CLIENT_PASSWORD = process.env.QA_CLIENT_PASSWORD || '';
 const APP_BASE_URL = process.env.APP_BASE_URL || 'http://localhost:5173';
 const DEEP_MODE = process.env.QA_DEEP_MODE === 'true';
 const DEEP_TAGS_FILTER = process.env.QA_DEEP_TAGS ? process.env.QA_DEEP_TAGS.split(',').map(t => t.trim()) : [];
+const ROUTES_INPUT = process.env.ROUTES?.trim() || 'all';
 
 // Buffer check constants
 const MIN_SCROLL_BUFFER_PX = 80;
 const MAX_SCROLL_BUFFER_PX = 120;
 const IDEAL_SCROLL_BUFFER_PX = 100;
 
-const VIEWPORTS = ['desktop', 'tablet', 'mobile'] as const;
-type Viewport = typeof VIEWPORTS[number];
+const ALL_VIEWPORTS = ['desktop', 'tablet', 'mobile'] as const;
+type Viewport = typeof ALL_VIEWPORTS[number];
+
+function parseRequestedViewports(): Viewport[] {
+  const raw = process.env.VIEWPORTS;
+  if (!raw) return [...ALL_VIEWPORTS];
+  const valid = raw
+    .split(',')
+    .map((v) => v.trim().toLowerCase())
+    .filter((v): v is Viewport => (ALL_VIEWPORTS as readonly string[]).includes(v));
+  return valid.length > 0 ? valid : ['desktop'];
+}
+
+const VIEWPORTS = parseRequestedViewports();
+
+function normalizeRoutePath(route: string): string {
+  const withoutQuery = route.split('?')[0].split('#')[0].trim();
+  if (!withoutQuery) return '/';
+  const withLeadingSlash = withoutQuery.startsWith('/') ? withoutQuery : `/${withoutQuery}`;
+  if (withLeadingSlash.length > 1 && withLeadingSlash.endsWith('/')) {
+    return withLeadingSlash.slice(0, -1);
+  }
+  return withLeadingSlash;
+}
+
+function parseRequestedRoutes(): string[] | null {
+  if (!ROUTES_INPUT || ROUTES_INPUT.toLowerCase() === 'all') return null;
+  const parsed = ROUTES_INPUT
+    .split(',')
+    .map((r) => normalizeRoutePath(r))
+    .filter(Boolean);
+  return parsed.length > 0 ? parsed : null;
+}
+
+function routeTokenMatchesTour(routeToken: string, tourRoute: string): boolean {
+  const token = normalizeRoutePath(routeToken);
+  const tour = normalizeRoutePath(tourRoute);
+
+  if (token === tour) return true;
+  if (tour.startsWith(`${token}/`) || token.startsWith(`${tour}/`)) return true;
+
+  if (tour.includes(':')) {
+    const tourRegex = new RegExp(
+      `^${tour.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/:[^/]+/g, '[^/]+')}$`
+    );
+    if (tourRegex.test(token)) return true;
+  }
+
+  return false;
+}
+
+function filterToursByRoutes<T extends { route: string }>(tours: T[], routeFilter: string[] | null): T[] {
+  if (!routeFilter || routeFilter.length === 0) return tours;
+  return tours.filter((tour) => routeFilter.some((token) => routeTokenMatchesTour(token, tour.route)));
+}
+
+const ROUTE_FILTER = parseRequestedRoutes();
+const SELECTED_PAGE_TOURS = filterToursByRoutes(pageTours, ROUTE_FILTER);
+
+function getSelectedDeepTours(): PageTour[] {
+  const orderedDeepTours = getDeepToursOrdered();
+  const tagScopedTours = DEEP_TAGS_FILTER.length > 0
+    ? orderedDeepTours.filter((t) => t.tags?.some((tag) => DEEP_TAGS_FILTER.includes(tag)))
+    : orderedDeepTours;
+
+  const routeScopedTours = filterToursByRoutes(tagScopedTours, ROUTE_FILTER);
+  const selectedNames = new Set(routeScopedTours.map((t) => t.name));
+  const tourByName = new Map(orderedDeepTours.map((t) => [t.name, t]));
+
+  // Always include deep-tour dependencies, even if they don't match route filters.
+  const addDependencies = (tour: PageTour) => {
+    for (const depName of tour.dependsOn || []) {
+      if (selectedNames.has(depName)) continue;
+      const depTour = tourByName.get(depName);
+      if (!depTour) continue;
+      selectedNames.add(depName);
+      addDependencies(depTour);
+    }
+  };
+
+  for (const tour of routeScopedTours) {
+    addDependencies(tour);
+  }
+
+  return orderedDeepTours.filter((t) => selectedNames.has(t.name));
+}
 
 // ============================================================
 // TYPES
@@ -128,6 +214,7 @@ let supabase: SupabaseClient;
 let runId: string;
 let adminContext: BrowserContext;
 let clientContext: BrowserContext;
+let executedByUserId: string | null = null;
 const testResults: TestResult[] = [];
 const missingTestIds: Map<string, { route: string; count: number }> = new Map();
 const skippedSteps: { route: string; step: string; reason: string }[] = [];
@@ -143,11 +230,51 @@ const sharedContext: Map<string, string> = new Map();
 // ============================================================
 
 function generateRunId(): string {
-  return `ui-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+  return randomUUID();
+}
+
+function resolveProjectViewport(projectName: string): Viewport {
+  return (ALL_VIEWPORTS as readonly string[]).includes(projectName) ? (projectName as Viewport) : 'desktop';
 }
 
 async function createSupabaseClient(): Promise<SupabaseClient> {
   return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+}
+
+async function resolveExecutedByUserId(): Promise<string | null> {
+  if (executedByUserId) return executedByUserId;
+  if (!QA_TENANT_ID || !QA_ADMIN_EMAIL || !supabase) return null;
+
+  const { data, error } = await supabase
+    .from('users')
+    .select('id')
+    .eq('tenant_id', QA_TENANT_ID)
+    .eq('email', QA_ADMIN_EMAIL)
+    .is('deleted_at', null)
+    .limit(1)
+    .maybeSingle();
+
+  if (!error && data?.id) {
+    executedByUserId = data.id;
+    return executedByUserId;
+  }
+
+  const { data: fallback, error: fallbackError } = await supabase
+    .from('users')
+    .select('id')
+    .eq('tenant_id', QA_TENANT_ID)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (fallbackError) {
+    console.error('Error resolving executed_by user:', fallbackError);
+    return null;
+  }
+
+  executedByUserId = fallback?.id ?? null;
+  return executedByUserId;
 }
 
 async function loginUser(page: Page, email: string, password: string, isClient: boolean = false): Promise<boolean> {
@@ -1144,8 +1271,18 @@ async function saveResultsToSupabase(results: TestResult[], runId: string, cover
     console.log('Supabase not configured, skipping database save');
     return;
   }
+  if (!QA_TENANT_ID) {
+    console.log('QA_TENANT_ID is not configured, skipping database save');
+    return;
+  }
 
   try {
+    const executedBy = await resolveExecutedByUserId();
+    if (!executedBy) {
+      console.log('Could not resolve executed_by user, skipping database save');
+      return;
+    }
+
     const p0Failures = results.filter(r => r.priority === 'P0' && r.status === 'fail');
     const runStatus = p0Failures.length > 0 ? 'failed' : results.some(r => r.status === 'fail') ? 'completed' : 'completed';
 
@@ -1154,6 +1291,7 @@ async function saveResultsToSupabase(results: TestResult[], runId: string, cover
       .insert({
         id: runId,
         tenant_id: QA_TENANT_ID,
+        executed_by: executedBy,
         status: runStatus,
         suites_requested: ['ui_visual_qa'],
         mode: 'create_cleanup',
@@ -1207,8 +1345,11 @@ async function saveResultsToSupabase(results: TestResult[], runId: string, cover
 }
 
 function generateCoverageReport(): TourCoverageReport {
-  const allRoutes = getAllRoutes();
-  const allTours = [...pageTours, ...deepTours];
+  const selectedDeepTours = getSelectedDeepTours();
+  const allTours = [...SELECTED_PAGE_TOURS, ...selectedDeepTours];
+  const allRoutes = ROUTE_FILTER
+    ? [...new Set(allTours.map((t) => t.route))]
+    : getAllRoutes();
   const routesWithTours = [...new Set(allTours.map(t => t.route))];
   const routesWithoutTours = allRoutes.filter(r => !routesWithTours.includes(r));
 
@@ -1280,38 +1421,38 @@ test.describe('UI Visual QA', () => {
     await clientContext?.close();
   });
 
-  // Generate tests for each tour and viewport
-  for (const tour of pageTours) {
-    for (const viewport of VIEWPORTS) {
-      test(`[${tour.priority}] ${tour.name} - ${viewport}`, async () => {
-        const context = tour.roleContext === 'client' ? clientContext : adminContext;
-        const page = await context.newPage();
+  // Generate tests for each selected tour; viewport is derived from Playwright project
+  for (const tour of SELECTED_PAGE_TOURS) {
+    test(`[${tour.priority}] ${tour.name}`, async ({}, testInfo) => {
+      const viewport = resolveProjectViewport(testInfo.project.name);
+      const context = tour.roleContext === 'client' ? clientContext : adminContext;
+      const page = await context.newPage();
 
-        try {
-          const result = await testRoute(page, tour.route, viewport, tour);
-          testResults.push(result);
+      try {
+        const result = await testRoute(page, tour.route, viewport, tour);
+        testResults.push(result);
 
-          // For P0 failures, fail the test hard
-          if (result.status === 'fail' && shouldFailRun(tour.priority)) {
-            expect(result.error_message).toBeUndefined();
-          } else if (result.status === 'fail') {
-            // P1/P2 failures are soft
-            expect.soft(result.error_message).toBeUndefined();
-          }
-        } finally {
-          await page.close();
+        // For P0 failures, fail the test hard
+        if (result.status === 'fail' && shouldFailRun(tour.priority)) {
+          expect(result.error_message).toBeUndefined();
+        } else if (result.status === 'fail') {
+          // P1/P2 failures are soft
+          expect.soft(result.error_message).toBeUndefined();
         }
-      });
-    }
+      } finally {
+        await page.close();
+      }
+    });
   }
 
-  // Test routes without tours (screenshot only)
-  const routesWithTours = new Set(pageTours.map(t => t.route));
-  const routesWithoutTours = getAllRoutes().filter(r => !routesWithTours.has(r));
+  // Route-only screenshots run only for "all routes" mode to keep targeted runs fast.
+  if (!ROUTE_FILTER) {
+    const routesWithTours = new Set(SELECTED_PAGE_TOURS.map((t) => t.route));
+    const routesWithoutTours = getAllRoutes().filter((r) => !routesWithTours.has(r));
 
-  for (const route of routesWithoutTours.slice(0, 10)) {
-    for (const viewport of VIEWPORTS) {
-      test(`[P2] Route-only: ${route} - ${viewport}`, async () => {
+    for (const route of routesWithoutTours.slice(0, 10)) {
+      test(`[P2] Route-only: ${route}`, async ({}, testInfo) => {
+        const viewport = resolveProjectViewport(testInfo.project.name);
         const page = await adminContext.newPage();
 
         try {
@@ -1344,6 +1485,7 @@ test.describe('UI Visual QA', () => {
 test.describe('Deep E2E QA', () => {
   // Only run when DEEP_MODE is enabled
   test.skip(!DEEP_MODE, 'Deep E2E tests are disabled. Set QA_DEEP_MODE=true to enable.');
+  test.skip(({ }, testInfo) => resolveProjectViewport(testInfo.project.name) !== 'desktop', 'Deep E2E tests run only on desktop project.');
 
   // Deep tests must run sequentially (they depend on each other)
   test.describe.configure({ mode: 'serial' });
@@ -1409,10 +1551,7 @@ test.describe('Deep E2E QA', () => {
   });
 
   // Generate deep tests in dependency order, desktop only
-  const orderedDeepTours = getDeepToursOrdered();
-  const filteredDeepTours = DEEP_TAGS_FILTER.length > 0
-    ? orderedDeepTours.filter(t => t.tags?.some(tag => DEEP_TAGS_FILTER.includes(tag)))
-    : orderedDeepTours;
+  const filteredDeepTours = getSelectedDeepTours();
 
   for (const tour of filteredDeepTours) {
     test(`[DEEP][${tour.priority}] ${tour.name}`, async () => {
