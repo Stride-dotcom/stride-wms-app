@@ -67,11 +67,17 @@ Options:
   process.exit(code);
 }
 
-function extractSection(packetText, heading) {
+const DECISION_ID_RE = /^DL-\d{4}-\d{2}-\d{2}-\d{3}$/;
+const EVENT_ID_RE = /^DLE-\d{4}-\d{2}-\d{2}-\d{3}$/;
+const DETAIL_ENTRY_ID_RE = /^###\s+(DL-\d{4}-\d{2}-\d{2}-\d{3}):/;
+const INDEX_HEADER_IDS = new Set(["Decision ID", "decision_id"]);
+const LOG_HEADER_IDS = new Set(["Event ID", "event_id"]);
+
+function extractRequiredSection(packetText, heading, packetPath) {
   const marker = `## ${heading}`;
   const startIdx = packetText.indexOf(marker);
   if (startIdx === -1) {
-    return "";
+    throw new Error(`Packet missing required section "${marker}": ${packetPath}`);
   }
   const firstNewlineIdx = packetText.indexOf("\n", startIdx);
   if (firstNewlineIdx === -1) {
@@ -83,6 +89,37 @@ function extractSection(packetText, heading) {
       ? packetText.slice(firstNewlineIdx + 1)
       : packetText.slice(firstNewlineIdx + 1, nextHeadingIdx);
   return body.trim();
+}
+
+function validatePacketStructure({ packetPath, indexSection, detailSection, logSection }) {
+  const rawIndexRows = extractTableRows(indexSection);
+  const rawLogRows = extractTableRows(logSection);
+
+  const indexIds = rawIndexRows.map(parseRowFirstCellId).filter(Boolean);
+  const logIds = rawLogRows.map(parseRowFirstCellId).filter(Boolean);
+
+  const indexDataIds = indexIds.filter((id) => !INDEX_HEADER_IDS.has(id));
+  for (const id of indexDataIds) {
+    if (!DECISION_ID_RE.test(id)) {
+      throw new Error(`Invalid Decision Index row ID "${id}" in packet: ${packetPath}`);
+    }
+  }
+
+  const logDataIds = logIds.filter((id) => !LOG_HEADER_IDS.has(id));
+  for (const id of logDataIds) {
+    if (!EVENT_ID_RE.test(id)) {
+      throw new Error(`Invalid Implementation Log row ID "${id}" in packet: ${packetPath}`);
+    }
+  }
+
+  const detailEntryIds = detailSection
+    .split("\n")
+    .map((line) => line.match(DETAIL_ENTRY_ID_RE)?.[1])
+    .filter(Boolean);
+
+  if (indexDataIds.length + logDataIds.length + detailEntryIds.length === 0) {
+    throw new Error(`Packet contains no valid ledger IDs to apply: ${packetPath}`);
+  }
 }
 
 function extractTableRows(sectionText) {
@@ -224,9 +261,11 @@ async function main() {
   for (const packetPath of packets) {
     const packetText = await fs.readFile(packetPath, "utf8");
 
-    const indexSection = extractSection(packetText, "Decision Index Rows");
-    const detailSection = extractSection(packetText, "Detailed Decision Entries");
-    const logSection = extractSection(packetText, "Implementation Log Rows");
+    const indexSection = extractRequiredSection(packetText, "Decision Index Rows", packetPath);
+    const detailSection = extractRequiredSection(packetText, "Detailed Decision Entries", packetPath);
+    const logSection = extractRequiredSection(packetText, "Implementation Log Rows", packetPath);
+
+    validatePacketStructure({ packetPath, indexSection, detailSection, logSection });
 
     const indexRows = dedupeIndexRows(extractTableRows(indexSection), ledgerText);
     const detailEntries = dedupeDecisionEntries(splitDecisionEntries(detailSection), ledgerText);
@@ -248,14 +287,14 @@ async function main() {
       changedLog = true;
     }
 
+    console.log(
+      `Packet processed: ${packetPath} (index rows: ${indexRows.length}, entries: ${detailEntries.length}, log rows: ${logRows.length})`,
+    );
+
     if (args.moveApplied) {
       const targetPath = path.join(args.appliedDir, path.basename(packetPath));
       moveOps.push({ from: packetPath, to: targetPath });
     }
-
-    console.log(
-      `Packet processed: ${packetPath} (index rows: ${indexRows.length}, entries: ${detailEntries.length}, log rows: ${logRows.length})`,
-    );
   }
 
   if (changedLedger) {
